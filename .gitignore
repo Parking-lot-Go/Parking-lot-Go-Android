@@ -19,4 +19,5 @@ local.properties
 .codex/
 .codex-skill-staging/
 *-skill/
+/ex/
 ex/
