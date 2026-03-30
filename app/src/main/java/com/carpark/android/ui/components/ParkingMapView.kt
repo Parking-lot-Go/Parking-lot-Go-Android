@@ -3,6 +3,7 @@ package com.carpark.android.ui.components
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.*
+import android.location.Geocoder
 import android.util.Log
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
@@ -20,8 +21,31 @@ import com.kakao.vectormap.*
 import com.kakao.vectormap.camera.CameraAnimation
 import com.kakao.vectormap.camera.CameraUpdateFactory
 import com.kakao.vectormap.label.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 
 private const val TAG = "ParkingMapView"
+
+private suspend fun resolveCenterRegion(
+    context: Context,
+    lat: Double,
+    lng: Double,
+): String? = withContext(Dispatchers.IO) {
+    runCatching {
+        if (!Geocoder.isPresent()) return@runCatching null
+        val results = Geocoder(context, Locale.KOREA).getFromLocation(lat, lng, 1)
+        val address = results?.firstOrNull() ?: return@runCatching null
+
+        listOfNotNull(
+            address.adminArea?.takeIf { it.isNotBlank() },
+            address.locality?.takeIf { it.isNotBlank() },
+            address.subAdminArea?.takeIf { it.isNotBlank() },
+            address.subLocality?.takeIf { it.isNotBlank() },
+        ).distinct().joinToString(" ").ifBlank { null }
+    }.getOrNull()
+}
 
 private fun createUserLocationBitmap(context: Context, bearing: Float?): Bitmap {
     val dp = context.resources.displayMetrics.density
@@ -245,6 +269,7 @@ fun ParkingMapView(
     modifier: Modifier = Modifier,
 ) {
     val isDarkMode = isSystemInDarkTheme()
+    val scope = rememberCoroutineScope()
     var kakaoMap by remember { mutableStateOf<KakaoMap?>(null) }
     val context = remember { mutableStateOf<Context?>(null) }
     val lotLabelsRef = remember { mutableStateOf<Map<Int, Label>>(emptyMap()) }
@@ -449,7 +474,10 @@ fun ParkingMapView(
                                         neLat = centerLat + latSpan / 2,
                                         neLng = centerLng + lngSpan / 2,
                                     )
-                                    onBoundsChange(bounds, null)
+                                    scope.launch {
+                                        val region = resolveCenterRegion(ctx, centerLat, centerLng)
+                                        onBoundsChange(bounds, region)
+                                    }
                                 } catch (e: Exception) {
                                     Log.e(TAG, "Error computing bounds", e)
                                 }

@@ -33,6 +33,7 @@ data class ParkingUiState(
     val mode: DataMode = DataMode.NOT_LINKED,
     val isNearbyMode: Boolean = false,
     val selectedLot: ParkingLot? = null,
+    val selectedNearbyIndex: Int = -1,
     val detailLot: ParkingLot? = null,
     val activeTab: TabId = TabId.HOME,
     val myPageRoute: MyPageRoute = MyPageRoute.ROOT,
@@ -126,11 +127,12 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 if (mode == DataMode.NOT_LINKED && bounds != null) {
                     val lots = repository.getStaticLotsInBounds(getApplication(), bounds)
                     _uiState.update { it.copy(parkingLots = lots) }
+                } else if (mode == DataMode.REALTIME) {
+                    val lots = repository.fetchParkingLots(mode)
+                    _uiState.update { it.copy(parkingLots = lots) }
                 } else {
                     val lots = repository.fetchParkingLots(mode, bounds, district)
-                    if (lots.isNotEmpty()) {
-                        _uiState.update { it.copy(parkingLots = lots) }
-                    }
+                    _uiState.update { it.copy(parkingLots = lots) }
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "데이터를 불러올 수 없습니다") }
@@ -148,12 +150,8 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 delay(REFRESH_INTERVAL)
                 if (_uiState.value.isNearbyMode) continue
                 try {
-                    val lots = repository.fetchParkingLots(
-                        _uiState.value.mode, currentBounds, currentDistrict
-                    )
-                    if (lots.isNotEmpty()) {
-                        _uiState.update { it.copy(parkingLots = lots) }
-                    }
+                    val lots = repository.fetchParkingLots(_uiState.value.mode)
+                    _uiState.update { it.copy(parkingLots = lots) }
                 } catch (_: Exception) { }
             }
         }
@@ -174,7 +172,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun changeMode(newMode: DataMode) {
-        _uiState.update { it.copy(mode = newMode) }
+        _uiState.update { it.copy(mode = newMode, parkingLots = emptyList()) }
         refreshJob?.cancel()
         loadParkingLots(newMode, currentBounds, currentDistrict)
         if (newMode == DataMode.REALTIME) startAutoRefresh()
@@ -182,12 +180,22 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
 
     fun selectLot(lot: ParkingLot?) {
         if (lot != null && _uiState.value.selectedLot?.id == lot.id) {
-            _uiState.update { it.copy(selectedLot = null) }
+            _uiState.update { it.copy(selectedLot = null, selectedNearbyIndex = -1) }
             return
         }
-        _uiState.update { it.copy(selectedLot = lot) }
+        if (lot == null) {
+            _uiState.update { it.copy(selectedLot = null, selectedNearbyIndex = -1) }
+            return
+        }
+        val nearbyIndex = _uiState.value.nearbyLots.indexOfFirst { it.lot.id == lot.id }
+        _uiState.update {
+            it.copy(
+                selectedLot = if (nearbyIndex >= 0) it.nearbyLots[nearbyIndex].lot else lot,
+                selectedNearbyIndex = nearbyIndex,
+            )
+        }
         // NOT_LINKED 모드에서는 정적 데이터만 있으므로 API로 상세 조회
-        if (lot != null && _uiState.value.mode == DataMode.NOT_LINKED) {
+        if (_uiState.value.mode == DataMode.NOT_LINKED) {
             viewModelScope.launch {
                 try {
                     val full = repository.fetchParkingDetail(lot.id)
@@ -230,8 +238,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
         }
         viewModelScope.launch {
             try {
-                if (isSaved) repository.removeFavorite(lot.id)
-                else repository.addFavorite(lot.id)
+                repository.toggleFavorite(lot.id)
             } catch (e: Exception) {
                 // 서버 실패 시 원복
                 loadFavorites(refresh = true)
@@ -239,12 +246,14 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun removeSavedLot(lotId: Int) {
-        _uiState.update { it.copy(savedLots = it.savedLots.filter { it.id != lotId }) }
+    fun removeSavedLot(lot: ParkingLot) {
+        // 낙관적 UI 업데이트 — 즉시 목록에서 제거
+        _uiState.update { it.copy(savedLots = it.savedLots.filter { l -> l.id != lot.id }) }
         viewModelScope.launch {
             try {
-                repository.removeFavorite(lotId)
+                repository.toggleFavorite(lot.id)
             } catch (e: Exception) {
+                // 서버 실패 시 전체 목록 다시 로드
                 loadFavorites(refresh = true)
             }
         }
@@ -458,6 +467,8 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                     it.copy(
                         nearbyLots = nearby,
                         parkingLots = nearby.map { n -> n.lot },
+                        selectedLot = null,
+                        selectedNearbyIndex = -1,
                         error = null,
                     )
                 }
@@ -509,10 +520,23 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
 
     fun onNearbyLotSelect(nearby: NearbyParkingLot) {
         val lot = nearby.lot
+        val index = _uiState.value.nearbyLots.indexOfFirst { it.lot.id == lot.id }
         _uiState.update {
             it.copy(
                 sheetOpen = false,
                 selectedLot = lot,
+                selectedNearbyIndex = index,
+                panTo = LatLngPoint(lot.latDouble, lot.lngDouble),
+            )
+        }
+    }
+
+    fun selectNearbyLotByIndex(index: Int) {
+        val lot = _uiState.value.nearbyLots.getOrNull(index)?.lot ?: return
+        _uiState.update {
+            it.copy(
+                selectedLot = lot,
+                selectedNearbyIndex = index,
                 panTo = LatLngPoint(lot.latDouble, lot.lngDouble),
             )
         }

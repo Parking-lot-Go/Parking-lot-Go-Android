@@ -49,7 +49,7 @@ fun SavedBottomSheet(
     hasMore: Boolean = false,
     loading: Boolean = false,
     onSelectLot: (ParkingLot) -> Unit,
-    onRemoveLot: (Int) -> Unit,
+    onRemoveLot: (ParkingLot) -> Unit,
     onClose: () -> Unit,
     onExpandChange: (Boolean) -> Unit,
     onLoadMore: () -> Unit = {},
@@ -169,7 +169,7 @@ fun SavedBottomSheet(
                         SavedLotRow(
                             lot = lot,
                             onClick = { onSelectLot(lot) },
-                            onRemove = { onRemoveLot(lot.id) },
+                            onRemove = { onRemoveLot(lot) },
                         )
                     }
                     if (hasMore) {

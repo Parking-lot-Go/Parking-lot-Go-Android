@@ -9,7 +9,6 @@ import com.carpark.android.data.model.ParkingLot
 import com.carpark.android.data.model.ParkingResponse
 import com.google.gson.JsonElement
 import retrofit2.http.Body
-import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -61,12 +60,7 @@ interface ParkingApi {
     ): ApiResponse<FavoritesPageResponse>
 
     @POST("favorites/{parkingId}")
-    suspend fun addFavorite(
+    suspend fun toggleFavorite(
         @Path("parkingId") parkingId: Int,
-    ): ApiResponse<Any>
-
-    @DELETE("favorites/{parkingId}")
-    suspend fun removeFavorite(
-        @Path("parkingId") parkingId: Int,
-    ): ApiResponse<Any>
+    ): ApiResponse<Boolean>
 }

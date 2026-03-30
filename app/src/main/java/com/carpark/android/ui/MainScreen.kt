@@ -28,6 +28,7 @@ import com.carpark.android.data.model.TabId
 import com.carpark.android.ui.components.BottomNavBar
 import com.carpark.android.ui.components.HeaderBar
 import com.carpark.android.ui.components.NearbyBottomSheet
+import com.carpark.android.ui.components.NearbyParkingInfoPager
 import com.carpark.android.ui.components.ParkingInfoCard
 import com.carpark.android.ui.components.ParkingMapView
 import com.carpark.android.ui.components.SearchResultsSheet
@@ -150,16 +151,29 @@ fun MainScreen(
 
                     if (state.selectedLot != null) {
                         Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-                            ParkingInfoCard(
-                                lot = state.selectedLot!!,
-                                dataMode = state.mode,
-                                isSaved = viewModel.isSavedLot(state.selectedLot!!.id),
-                                onToggleSave = { viewModel.toggleSavedLot(state.selectedLot!!) },
-                                onClose = { viewModel.selectLot(null) },
-                                onShowDetail = {
-                                    state.selectedLot?.let { viewModel.showDetail(it) }
-                                },
-                            )
+                            if (state.isNearbyMode && state.selectedNearbyIndex >= 0 && state.nearbyLots.isNotEmpty()) {
+                                NearbyParkingInfoPager(
+                                    lots = state.nearbyLots.map { it.lot },
+                                    selectedIndex = state.selectedNearbyIndex,
+                                    dataMode = state.mode,
+                                    isSaved = viewModel::isSavedLot,
+                                    onToggleSave = viewModel::toggleSavedLot,
+                                    onClose = { viewModel.selectLot(null) },
+                                    onShowDetail = viewModel::showDetail,
+                                    onPageSelected = viewModel::selectNearbyLotByIndex,
+                                )
+                            } else {
+                                ParkingInfoCard(
+                                    lot = state.selectedLot!!,
+                                    dataMode = state.mode,
+                                    isSaved = viewModel.isSavedLot(state.selectedLot!!.id),
+                                    onToggleSave = { viewModel.toggleSavedLot(state.selectedLot!!) },
+                                    onClose = { viewModel.selectLot(null) },
+                                    onShowDetail = {
+                                        state.selectedLot?.let { viewModel.showDetail(it) }
+                                    },
+                                )
+                            }
                         }
                     }
 
@@ -170,6 +184,7 @@ fun MainScreen(
                                 expanded = state.nearbyExpanded,
                                 lots = state.nearbyLots,
                                 loading = state.loading,
+                                regionLabel = state.centerRegion,
                                 onClose = viewModel::closeNearbySheet,
                                 onReSearch = viewModel::reSearchNearby,
                                 onSelectLot = viewModel::onNearbyLotSelect,

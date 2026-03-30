@@ -1,6 +1,8 @@
 package com.carpark.android.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -16,6 +20,8 @@ import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.ui.res.painterResource
+import com.carpark.android.R
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -25,6 +31,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +80,81 @@ private fun getStatusLabel(lot: ParkingLot): String {
         ratio > 0.3f -> "여유"
         ratio > 0.1f -> "보통"
         else -> "혼잡"
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun NearbyParkingInfoPager(
+    lots: List<ParkingLot>,
+    selectedIndex: Int,
+    dataMode: DataMode,
+    isSaved: (Int) -> Boolean,
+    onToggleSave: (ParkingLot) -> Unit,
+    onClose: () -> Unit,
+    onShowDetail: (ParkingLot) -> Unit,
+    onPageSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (lots.isEmpty()) return
+
+    val safeIndex = selectedIndex.coerceIn(0, lots.lastIndex)
+    val pagerState = rememberPagerState(
+        initialPage = safeIndex,
+        pageCount = { lots.size },
+    )
+
+    LaunchedEffect(safeIndex, lots.size) {
+        if (pagerState.currentPage != safeIndex) {
+            pagerState.scrollToPage(safeIndex)
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage, safeIndex, lots.size) {
+        if (pagerState.currentPage != safeIndex && pagerState.currentPage in lots.indices) {
+            onPageSelected(pagerState.currentPage)
+        }
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 4.dp),
+        ) { page ->
+            val lot = lots[page]
+            ParkingInfoCard(
+                lot = lot,
+                dataMode = dataMode,
+                isSaved = isSaved(lot.id),
+                onToggleSave = { onToggleSave(lot) },
+                onClose = onClose,
+                onShowDetail = { onShowDetail(lot) },
+            )
+        }
+
+        if (lots.size > 1) {
+            Row(
+                modifier = Modifier.padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                repeat(lots.size) { index ->
+                    val isActive = index == pagerState.currentPage
+                    Spacer(
+                        modifier = Modifier
+                            .size(width = if (isActive) 16.dp else 6.dp, height = 6.dp)
+                            .background(
+                                color = if (isActive) Gray700 else Gray300,
+                                shape = RoundedCornerShape(999.dp),
+                            ),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -130,9 +212,11 @@ fun ParkingInfoCard(
 
                 IconButton(onClick = onToggleSave, modifier = Modifier.size(32.dp)) {
                     Icon(
-                        imageVector = Icons.Default.Star,
+                        painter = painterResource(
+                            if (isSaved) R.drawable.ic_star_filled else R.drawable.ic_star_outline
+                        ),
                         contentDescription = "save-lot",
-                        tint = if (isSaved) Amber else Gray300,
+                        tint = Color.Unspecified,
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -234,7 +318,14 @@ fun ParkingInfoCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                 ) {
-                    Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (isSaved) Amber else Gray500)
+                    Icon(
+                        painter = painterResource(
+                            if (isSaved) R.drawable.ic_star_filled else R.drawable.ic_star_outline
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.Unspecified,
+                    )
                     Spacer(Modifier.size(4.dp))
                     Text(text = if (isSaved) "저장됨" else "저장", fontSize = 13.sp)
                 }
@@ -250,7 +341,7 @@ fun ParkingInfoCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                 ) {
-                    Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(painter = painterResource(R.drawable.track_order), contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Unspecified)
                     Spacer(Modifier.size(4.dp))
                     Text(text = "길안내", fontSize = 13.sp)
                 }

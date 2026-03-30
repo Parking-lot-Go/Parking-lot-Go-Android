@@ -113,18 +113,13 @@ class ParkingRepository {
         return response.data
     }
 
-    suspend fun addFavorite(parkingId: Int) {
-        val response = api.addFavorite(parkingId)
+    /** @return true = 등록됨, false = 해제됨 */
+    suspend fun toggleFavorite(parkingId: Int): Boolean {
+        val response = api.toggleFavorite(parkingId)
         if (!response.success) {
-            throw IllegalStateException(response.message.ifBlank { "즐겨찾기 추가 실패" })
+            throw IllegalStateException(response.message.ifBlank { "즐겨찾기 변경 실패" })
         }
-    }
-
-    suspend fun removeFavorite(parkingId: Int) {
-        val response = api.removeFavorite(parkingId)
-        if (!response.success) {
-            throw IllegalStateException(response.message.ifBlank { "즐겨찾기 삭제 실패" })
-        }
+        return response.data ?: false
     }
 
     companion object {

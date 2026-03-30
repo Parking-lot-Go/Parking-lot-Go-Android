@@ -1,11 +1,13 @@
 package com.carpark.android.ui.components
 
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -30,7 +32,6 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,7 +51,6 @@ import com.carpark.android.R
 import com.carpark.android.data.model.DataMode
 import com.carpark.android.ui.theme.BarActiveDark
 import com.carpark.android.ui.theme.BarActiveLight
-import com.carpark.android.ui.theme.BarBgDark
 import com.carpark.android.ui.theme.BarHintDark
 import com.carpark.android.ui.theme.BarHintLight
 import com.carpark.android.ui.theme.BarInactiveDark
@@ -59,6 +59,13 @@ import com.carpark.android.ui.theme.BarInputBgDark
 import com.carpark.android.ui.theme.BarInputBgLight
 import com.carpark.android.ui.theme.BarInputTextDark
 import com.carpark.android.ui.theme.BarInputTextLight
+import com.carpark.android.ui.theme.Gray100
+import com.carpark.android.ui.theme.Gray200
+import com.carpark.android.ui.theme.Gray300
+import com.carpark.android.ui.theme.Gray500
+import com.carpark.android.ui.theme.Gray600
+import com.carpark.android.ui.theme.Gray800
+import com.carpark.android.ui.theme.Primary
 import com.carpark.android.ui.theme.Red
 
 @Composable
@@ -82,18 +89,6 @@ fun HeaderBar(
     val active = if (isDark) BarActiveDark else BarActiveLight
     val inactive = if (isDark) BarInactiveDark else BarInactiveLight
     val chipBg = if (isDark) BarInputBgDark else BarInputBgLight
-    val toggleBg = if (isDark) BarBgDark else Color.White
-
-    val infiniteTransition = rememberInfiniteTransition(label = "realtime_indicator")
-    val blinkingAlpha by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0.25f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(700),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "realtime_indicator_alpha",
-    )
 
     Column(
         modifier = modifier
@@ -204,39 +199,101 @@ fun HeaderBar(
 
             Spacer(Modifier.width(8.dp))
 
-            Row(
-                modifier = Modifier
-                    .shadow(4.dp, RoundedCornerShape(20.dp))
-                    .background(toggleBg, RoundedCornerShape(20.dp))
-                    .padding(start = 12.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(
-                            color = if (isRealtime) {
-                                Red.copy(alpha = blinkingAlpha)
-                            } else {
-                                inactive.copy(alpha = 0.45f)
-                            },
-                            shape = CircleShape,
-                        ),
-                )
-                Text(
-                    text = "실시간",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isRealtime) active else inactive,
-                )
-                Switch(
-                    checked = isRealtime,
-                    onCheckedChange = { enabled ->
-                        onModeChange(if (enabled) DataMode.REALTIME else DataMode.NOT_LINKED)
+            RealtimeToggleChip(
+                checked = isRealtime,
+                isDark = isDark,
+                activeColor = active,
+                inactiveColor = inactive,
+                onToggle = { enabled ->
+                    onModeChange(if (enabled) DataMode.REALTIME else DataMode.NOT_LINKED)
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RealtimeToggleChip(
+    checked: Boolean,
+    isDark: Boolean,
+    activeColor: Color,
+    inactiveColor: Color,
+    onToggle: (Boolean) -> Unit,
+) {
+    val transition = rememberInfiniteTransition(label = "realtime_indicator")
+    val indicatorAlpha by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.25f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "realtime_indicator_alpha",
+    )
+
+    val chipBackground = when {
+        checked && isDark -> Primary.copy(alpha = 0.18f)
+        checked -> Primary.copy(alpha = 0.10f)
+        isDark -> Gray800
+        else -> Gray100
+    }
+    val chipBorderColor = when {
+        checked && isDark -> Primary.copy(alpha = 0.42f)
+        checked -> Primary.copy(alpha = 0.18f)
+        isDark -> Color.White.copy(alpha = 0.10f)
+        else -> Gray200
+    }
+    val sliderBackground = when {
+        checked -> Primary
+        isDark -> Gray600
+        else -> Gray200
+    }
+    val thumbColor = if (checked) Color.White else if (isDark) Gray300 else Color.White
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) 14.dp else 2.dp,
+        animationSpec = tween(180),
+        label = "realtime_thumb_offset",
+    )
+
+    Row(
+        modifier = Modifier
+            .shadow(if (isDark) 0.dp else 4.dp, RoundedCornerShape(18.dp))
+            .background(chipBackground, RoundedCornerShape(18.dp))
+            .border(1.dp, chipBorderColor, RoundedCornerShape(18.dp))
+            .clickable { onToggle(!checked) }
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .background(
+                    color = if (checked) {
+                        Red.copy(alpha = indicatorAlpha)
+                    } else {
+                        Gray500.copy(alpha = if (isDark) 0.75f else 0.55f)
                     },
-                )
-            }
+                    shape = CircleShape,
+                ),
+        )
+        Text(
+            text = "실시간",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (checked) activeColor else inactiveColor,
+        )
+        Box(
+            modifier = Modifier
+                .size(width = 30.dp, height = 18.dp)
+                .background(sliderBackground, RoundedCornerShape(999.dp)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(start = thumbOffset, top = 2.dp)
+                    .size(14.dp)
+                    .background(thumbColor, CircleShape),
+            )
         }
     }
 }
