@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.MaterialTheme
 import com.carpark.android.data.model.NearbyParkingLot
 import com.carpark.android.ui.theme.Amber
 import com.carpark.android.ui.theme.Gray100
@@ -113,7 +114,7 @@ fun NearbyBottomSheet(
                     .fillMaxWidth()
                     .height(with(density) { heightPx.value.toDp() })
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .background(Color.White),
+                    .background(MaterialTheme.colorScheme.surface),
             ) {
                 Box(
                     modifier = Modifier
@@ -174,7 +175,7 @@ fun NearbyBottomSheet(
                         text = "내 주변 주차장",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        color = Gray900,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = onReSearch) {
@@ -272,10 +273,10 @@ private fun NearbyItem(
         Box(
             modifier = Modifier
                 .size(28.dp)
-                .background(Gray100, RoundedCornerShape(6.dp)),
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Text("$rank", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Primary)
+            Text("$rank", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         }
 
         Spacer(Modifier.width(12.dp))
@@ -289,7 +290,7 @@ private fun NearbyItem(
                     text = lot.parkingName,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Gray900,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                 )
                 Text(

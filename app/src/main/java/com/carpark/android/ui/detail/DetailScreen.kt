@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -82,13 +83,13 @@ fun DetailScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.background)
                 .systemBarsPadding(),
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Gray800)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -96,12 +97,12 @@ fun DetailScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "back",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
                 Text(
                     text = "주차장 상세",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                 )
@@ -117,7 +118,7 @@ fun DetailScreen(
                     text = lot.parkingName,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Gray900,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.size(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -276,7 +277,7 @@ private fun SectionTitle(title: String) {
         text = title,
         fontSize = 15.sp,
         fontWeight = FontWeight.Bold,
-        color = Gray900,
+        color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.padding(bottom = 8.dp),
     )
 }

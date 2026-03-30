@@ -137,11 +137,11 @@ private fun MyPageHome(
                     Text(
                         text = "마이페이지",
                         fontWeight = FontWeight.Bold,
-                        color = Gray900,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
         },
@@ -150,7 +150,6 @@ private fun MyPageHome(
             modifier = Modifier
                 .fillMaxSize()
                 .background(backgroundColor)
-                .verticalScroll(rememberScrollState())
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
                 .padding(horizontal = 20.dp, vertical = 20.dp),
@@ -247,7 +246,6 @@ private fun NoticePage(
                 .fillMaxSize()
                 .background(backgroundColor)
                 .verticalScroll(rememberScrollState())
-                .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -328,7 +326,6 @@ private fun RequestPage(
             modifier = Modifier
                 .fillMaxSize()
                 .background(backgroundColor)
-                .verticalScroll(rememberScrollState())
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
                 .padding(20.dp),
@@ -486,14 +483,14 @@ private fun TermsPage(
         ) {
             Card(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = "서비스 이용 약관",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Gray900,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(Modifier.height(12.dp))
                     TermsText("1. 본 서비스는 주차장 정보와 길안내 기능을 제공합니다.")
@@ -547,14 +544,14 @@ private fun NoticeCard(
 ) {
     Card(
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Gray900,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(6.dp))
             Text(
@@ -580,14 +577,14 @@ private fun InfoCard(
 ) {
     Card(
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Gray900,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(10.dp))
             Text(
@@ -618,7 +615,7 @@ private fun ProfileCard(
 ) {
     Card(
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Row(
             modifier = Modifier
@@ -648,7 +645,7 @@ private fun ProfileCard(
                     text = nickname,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Gray900,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.height(6.dp))
                 Surface(
@@ -687,13 +684,13 @@ private fun MenuSection(
         text = title,
         style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.Bold,
-        color = Gray900,
+        color = MaterialTheme.colorScheme.onSurface,
     )
     Spacer(Modifier.height(10.dp))
 
     Card(
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         items.forEachIndexed { index, item ->
             MenuRow(item = item)
@@ -734,7 +731,7 @@ private fun MenuRow(item: MenuItemData) {
                 text = item.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = Gray900,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -782,7 +779,7 @@ private fun NavigationOptionRow(
                     text = if (provider == NavigationProvider.NAVER) "네이버 지도" else "카카오내비",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = Gray900,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(

@@ -1,6 +1,7 @@
 package com.carpark.android.ui.login
 
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -62,11 +63,10 @@ fun LoginScreen(
                 .padding(top = 160.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_home),
+            Image(
+                painter = painterResource(R.drawable.parking_lot_logo),
                 contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = Color(0xFF2563EB),
+                modifier = Modifier.size(88.dp),
             )
             Spacer(Modifier.height(16.dp))
             Text(

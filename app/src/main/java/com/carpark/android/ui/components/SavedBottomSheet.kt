@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.MaterialTheme
 import com.carpark.android.data.model.ParkingLot
 import com.carpark.android.ui.theme.Gray100
 import com.carpark.android.ui.theme.Gray300
@@ -83,7 +84,7 @@ fun SavedBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(with(density) { heightPx.value.toDp() })
-                .background(Color.White, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
         ) {
             // 드래그 핸들
             Box(
@@ -142,7 +143,7 @@ fun SavedBottomSheet(
                     text = "저장한 주차장",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = Gray900,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 TextButton(onClick = onClose) {
                     Text(text = "닫기", fontSize = 16.sp, color = Gray500)
@@ -207,7 +208,7 @@ private fun SavedLotRow(
             .padding(horizontal = 12.dp, vertical = 6.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -223,7 +224,7 @@ private fun SavedLotRow(
                     text = lot.parkingName,
                     modifier = Modifier.weight(1f),
                     fontWeight = FontWeight.SemiBold,
-                    color = Gray900,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
                     Icon(
@@ -238,7 +239,7 @@ private fun SavedLotRow(
             if (lot.address.isNotBlank()) {
                 Text(
                     text = lot.address,
-                    color = Gray700,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                 )
             }
@@ -253,5 +254,5 @@ private fun SavedLotRow(
             }
         }
     }
-    HorizontalDivider(color = Gray100)
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 }
