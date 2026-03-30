@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 노란 원 배경 -->
+    <path
+        android:fillColor="#FEE500"
+        android:pathData="M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2Z"/>
+    <!-- 카카오 말풍선 -->
+    <path
+        android:fillColor="#3C1E1E"
+        android:pathData="M12,6.5C8.96,6.5 6.5,8.46 6.5,10.88C6.5,12.45 7.53,13.82 9.08,14.6L8.55,16.8L11.05,15.14C11.36,15.18 11.68,15.2 12,15.2C15.04,15.2 17.5,13.24 17.5,10.88C17.5,8.46 15.04,6.5 12,6.5Z"/>
+</vector>

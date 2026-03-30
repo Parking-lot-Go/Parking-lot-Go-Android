@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">주차장Go</string>
+    <string name="tab_nearby">내 주변</string>
+    <string name="tab_home">홈</string>
+    <string name="tab_saved">저장</string>
+    <string name="search_hint">주차장 검색</string>
+    <string name="mode_realtime">실시간</string>
+    <string name="mode_non_realtime">비실시간</string>
+    <string name="no_saved">저장된 주차장이 없습니다</string>
+    <string name="loading">로딩 중...</string>
+    <string name="error_location">위치를 가져올 수 없습니다</string>
+    <string name="fee_free">무료</string>
+    <string name="fee_paid">유료</string>
+    <string name="basic_fee">기본 요금</string>
+    <string name="additional_fee">추가 요금</string>
+    <string name="monthly_fee">월주차 요금</string>
+    <string name="day_max_fee">일 최대 요금</string>
+    <string name="operating_hours">운영 시간</string>
+    <string name="weekday">평일</string>
+    <string name="weekend">주말</string>
+    <string name="holiday">공휴일</string>
+    <string name="navigate">길안내</string>
+    <string name="share">공유</string>
+    <string name="favorite">즐겨찾기</string>
+    <string name="sort_distance">거리순</string>
+    <string name="sort_fee">요금순</string>
+    <string name="nearby_search">내 주변 검색</string>
+    <string name="re_search">다시 검색</string>
+    <string name="available">주차 가능</string>
+    <string name="won">원</string>
+    <string name="minutes">분</string>
+    <string name="naver_maps">네이버 지도</string>
+    <string name="kakao_map">카카오맵</string>
+</resources>
