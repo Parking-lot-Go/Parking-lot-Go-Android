@@ -1,9 +1,24 @@
 package com.carpark.android.ui.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -13,12 +28,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
@@ -27,10 +46,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.focus.onFocusChanged
 import com.carpark.android.R
 import com.carpark.android.data.model.DataMode
-import com.carpark.android.ui.theme.*
+import com.carpark.android.ui.theme.BarActiveDark
+import com.carpark.android.ui.theme.BarActiveLight
+import com.carpark.android.ui.theme.BarBgDark
+import com.carpark.android.ui.theme.BarHintDark
+import com.carpark.android.ui.theme.BarHintLight
+import com.carpark.android.ui.theme.BarInactiveDark
+import com.carpark.android.ui.theme.BarInactiveLight
+import com.carpark.android.ui.theme.BarInputBgDark
+import com.carpark.android.ui.theme.BarInputBgLight
+import com.carpark.android.ui.theme.BarInputTextDark
+import com.carpark.android.ui.theme.BarInputTextLight
+import com.carpark.android.ui.theme.Red
 
 @Composable
 fun HeaderBar(
@@ -45,6 +74,7 @@ fun HeaderBar(
 ) {
     val focusManager = LocalFocusManager.current
     val isDark = isSystemInDarkTheme()
+    val isRealtime = dataMode == DataMode.REALTIME
 
     val inputBg = if (isDark) BarInputBgDark else BarInputBgLight
     val inputText = if (isDark) BarInputTextDark else BarInputTextLight
@@ -52,7 +82,18 @@ fun HeaderBar(
     val active = if (isDark) BarActiveDark else BarActiveLight
     val inactive = if (isDark) BarInactiveDark else BarInactiveLight
     val chipBg = if (isDark) BarInputBgDark else BarInputBgLight
-    val chipSelectedBg = if (isDark) Color(0xFF4A4A4A) else Color.White
+    val toggleBg = if (isDark) BarBgDark else Color.White
+
+    val infiniteTransition = rememberInfiniteTransition(label = "realtime_indicator")
+    val blinkingAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.25f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "realtime_indicator_alpha",
+    )
 
     Column(
         modifier = modifier
@@ -60,7 +101,6 @@ fun HeaderBar(
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        // Pill search bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -84,7 +124,10 @@ fun HeaderBar(
                     .weight(1f)
                     .onFocusChanged { onSearchFocusChange(it.isFocused) },
                 singleLine = true,
-                textStyle = LocalTextStyle.current.copy(fontSize = 15.sp, color = inputText),
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = 15.sp,
+                    color = inputText,
+                ),
                 cursorBrush = SolidColor(active),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
@@ -93,19 +136,23 @@ fun HeaderBar(
                             focusManager.clearFocus()
                             onSearch(searchQuery.trim())
                         }
-                    }
+                    },
                 ),
                 decorationBox = { inner ->
                     if (searchQuery.isEmpty()) {
-                        Text("주차장 검색", color = hint, fontSize = 15.sp)
+                        Text(
+                            text = "주차장 검색",
+                            color = hint,
+                            fontSize = 15.sp,
+                        )
                     }
                     inner()
                 },
             )
             if (searchQuery.isNotEmpty()) {
                 Icon(
-                    Icons.Default.Close,
-                    contentDescription = "초기화",
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "검색어 지우기",
                     tint = hint,
                     modifier = Modifier
                         .size(20.dp)
@@ -113,7 +160,7 @@ fun HeaderBar(
                 )
             } else {
                 Icon(
-                    Icons.Default.Search,
+                    imageVector = Icons.Default.Search,
                     contentDescription = null,
                     tint = hint,
                     modifier = Modifier.size(20.dp),
@@ -123,37 +170,11 @@ fun HeaderBar(
 
         Spacer(Modifier.height(8.dp))
 
-        // Mode toggle + region
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Row(
-                modifier = Modifier
-                    .shadow(4.dp, RoundedCornerShape(20.dp))
-                    .background(chipBg, RoundedCornerShape(20.dp))
-                    .padding(3.dp),
-            ) {
-                ModeChip(
-                    label = "비실시간",
-                    selected = dataMode == DataMode.NOT_LINKED,
-                    onClick = { onModeChange(DataMode.NOT_LINKED) },
-                    selectedBg = chipSelectedBg,
-                    activeColor = active,
-                    inactiveColor = inactive,
-                )
-                ModeChip(
-                    label = "실시간",
-                    selected = dataMode == DataMode.REALTIME,
-                    onClick = { onModeChange(DataMode.REALTIME) },
-                    showDot = true,
-                    selectedBg = chipSelectedBg,
-                    activeColor = active,
-                    inactiveColor = inactive,
-                )
-            }
-
             if (centerRegion.isNotBlank()) {
                 Row(
                     modifier = Modifier
@@ -164,7 +185,7 @@ fun HeaderBar(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Icon(
-                        Icons.Default.LocationOn,
+                        imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
                         tint = inactive,
                         modifier = Modifier.size(14.dp),
@@ -177,40 +198,45 @@ fun HeaderBar(
                         maxLines = 1,
                     )
                 }
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            Row(
+                modifier = Modifier
+                    .shadow(4.dp, RoundedCornerShape(20.dp))
+                    .background(toggleBg, RoundedCornerShape(20.dp))
+                    .padding(start = 12.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(
+                            color = if (isRealtime) {
+                                Red.copy(alpha = blinkingAlpha)
+                            } else {
+                                inactive.copy(alpha = 0.45f)
+                            },
+                            shape = CircleShape,
+                        ),
+                )
+                Text(
+                    text = "실시간",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isRealtime) active else inactive,
+                )
+                Switch(
+                    checked = isRealtime,
+                    onCheckedChange = { enabled ->
+                        onModeChange(if (enabled) DataMode.REALTIME else DataMode.NOT_LINKED)
+                    },
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun ModeChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    selectedBg: Color,
-    activeColor: Color,
-    inactiveColor: Color,
-    showDot: Boolean = false,
-) {
-    val bgColor = if (selected) selectedBg else Color.Transparent
-    val textColor = if (selected) activeColor else inactiveColor
-
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(bgColor)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (showDot) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .background(if (selected) Red else inactiveColor, CircleShape),
-            )
-            Spacer(Modifier.width(4.dp))
-        }
-        Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = textColor)
     }
 }
