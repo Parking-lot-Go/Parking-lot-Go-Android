@@ -10,8 +10,10 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.carpark.android.data.local.AppSettingsPreferences
 import com.carpark.android.data.local.SessionManager
 import com.carpark.android.ui.MainScreen
 import com.carpark.android.ui.login.LoginScreen
@@ -39,7 +41,12 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            CarParkTheme {
+            val settingsPreferences = remember { AppSettingsPreferences(this) }
+            val themeMode by settingsPreferences.themeModeFlow.collectAsStateWithLifecycle(
+                initialValue = settingsPreferences.themeMode,
+            )
+
+            CarParkTheme(themeMode = themeMode) {
                 val isLoggedIn by SessionManager.isLoggedIn.collectAsStateWithLifecycle()
 
                 LaunchedEffect(isLoggedIn) {

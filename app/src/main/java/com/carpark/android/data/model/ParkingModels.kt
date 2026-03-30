@@ -18,6 +18,15 @@ enum class NavigationProvider {
     NAVER, KAKAO
 }
 
+enum class ThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK;
+
+    val serverValue: String
+        get() = name
+}
+
 data class ParkingLotSummary(
     val id: Int,
     @SerializedName("parkingName") val parkingName: String,

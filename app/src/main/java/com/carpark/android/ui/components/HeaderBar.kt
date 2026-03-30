@@ -9,7 +9,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,6 +66,7 @@ import com.carpark.android.ui.theme.Gray600
 import com.carpark.android.ui.theme.Gray800
 import com.carpark.android.ui.theme.Primary
 import com.carpark.android.ui.theme.Red
+import com.carpark.android.ui.theme.isAppInDarkTheme
 
 @Composable
 fun HeaderBar(
@@ -80,7 +80,7 @@ fun HeaderBar(
     modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
     val isRealtime = dataMode == DataMode.REALTIME
 
     val inputBg = if (isDark) BarInputBgDark else BarInputBgLight

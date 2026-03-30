@@ -5,7 +5,6 @@ import android.content.res.Configuration
 import android.graphics.*
 import android.location.Geocoder
 import android.util.Log
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
@@ -16,6 +15,7 @@ import com.carpark.android.data.model.DataMode
 import com.carpark.android.data.model.KakaoPlace
 import com.carpark.android.data.model.MapBounds
 import com.carpark.android.data.model.ParkingLot
+import com.carpark.android.ui.theme.isAppInDarkTheme
 import com.carpark.android.viewmodel.LatLngPoint
 import com.kakao.vectormap.*
 import com.kakao.vectormap.camera.CameraAnimation
@@ -268,7 +268,7 @@ fun ParkingMapView(
     onMapClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isDarkMode = isSystemInDarkTheme()
+    val isDarkMode = isAppInDarkTheme()
     val scope = rememberCoroutineScope()
     var kakaoMap by remember { mutableStateOf<KakaoMap?>(null) }
     val context = remember { mutableStateOf<Context?>(null) }

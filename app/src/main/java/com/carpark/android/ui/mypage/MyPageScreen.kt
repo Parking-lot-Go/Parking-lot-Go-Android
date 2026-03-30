@@ -65,6 +65,7 @@ import com.carpark.android.data.local.AppSettingsPreferences
 import com.carpark.android.data.local.AuthPreferences
 import com.carpark.android.data.model.MyPageRoute
 import com.carpark.android.data.model.NavigationProvider
+import com.carpark.android.data.model.ThemeMode
 import com.carpark.android.ui.theme.Gray100
 import com.carpark.android.ui.theme.Gray400
 import com.carpark.android.ui.theme.Gray50
@@ -125,10 +126,11 @@ private fun MyPageHome(
     val context = LocalContext.current
     val nickname = authPreferences.userNickname ?: "사용자"
     val loginType = authPreferences.loginType ?: "UNKNOWN"
+    val backgroundColor = MaterialTheme.colorScheme.background
 
     Scaffold(
         modifier = modifier,
-        containerColor = Gray50,
+        containerColor = backgroundColor,
         topBar = {
             TopAppBar(
                 title = {
@@ -147,7 +149,8 @@ private fun MyPageHome(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Gray50)
+                .background(backgroundColor)
+                .verticalScroll(rememberScrollState())
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
                 .padding(horizontal = 20.dp, vertical = 20.dp),
@@ -231,9 +234,10 @@ private fun NoticePage(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val backgroundColor = MaterialTheme.colorScheme.background
     Scaffold(
         modifier = modifier,
-        containerColor = Gray50,
+        containerColor = backgroundColor,
         topBar = {
             PageTopBar(title = "공지사항", onBack = onBack)
         },
@@ -241,7 +245,8 @@ private fun NoticePage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Gray50)
+                .background(backgroundColor)
+                .verticalScroll(rememberScrollState())
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
                 .padding(20.dp),
@@ -272,9 +277,10 @@ private fun ContactPage(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val backgroundColor = MaterialTheme.colorScheme.background
     Scaffold(
         modifier = modifier,
-        containerColor = Gray50,
+        containerColor = backgroundColor,
         topBar = {
             PageTopBar(title = "문의하기", onBack = onBack)
         },
@@ -282,7 +288,7 @@ private fun ContactPage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Gray50)
+                .background(backgroundColor)
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
                 .padding(20.dp),
@@ -310,9 +316,10 @@ private fun RequestPage(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val backgroundColor = MaterialTheme.colorScheme.background
     Scaffold(
         modifier = modifier,
-        containerColor = Gray50,
+        containerColor = backgroundColor,
         topBar = {
             PageTopBar(title = "개발자에게 요구사항", onBack = onBack)
         },
@@ -320,7 +327,8 @@ private fun RequestPage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Gray50)
+                .background(backgroundColor)
+                .verticalScroll(rememberScrollState())
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
                 .padding(20.dp),
@@ -352,11 +360,18 @@ private fun SettingsPage(
     var selectedProvider by remember {
         mutableStateOf(settingsPreferences.preferredNavigation)
     }
+    var selectedThemeMode by remember {
+        mutableStateOf(settingsPreferences.themeMode)
+    }
     val scope = rememberCoroutineScope()
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val titleColor = MaterialTheme.colorScheme.onSurface
+    val bodyColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Scaffold(
         modifier = modifier,
-        containerColor = Gray50,
+        containerColor = backgroundColor,
         topBar = {
             PageTopBar(title = "환경설정", onBack = onBack)
         },
@@ -364,28 +379,65 @@ private fun SettingsPage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Gray50)
+                .background(backgroundColor)
                 .padding(innerPadding)
                 .padding(20.dp),
         ) {
             Text(
-                text = "기본 내비 설정",
+                text = "테마 설정",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Gray900,
+                color = titleColor,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "길안내 버튼을 눌렀을 때 먼저 실행할 내비 앱을 선택해 주세요.",
+                text = "휴대폰 설정을 따르거나, 앱에서 라이트/다크 모드를 직접 고를 수 있어요.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Gray700,
+                color = bodyColor,
             )
 
             Spacer(Modifier.height(16.dp))
 
             Card(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = surfaceColor),
+            ) {
+                ThemeMode.entries.forEachIndexed { index, themeMode ->
+                    ThemeModeOptionRow(
+                        mode = themeMode,
+                        selected = selectedThemeMode == themeMode,
+                        onSelect = {
+                            selectedThemeMode = themeMode
+                            settingsPreferences.themeMode = themeMode
+                        },
+                    )
+
+                    if (index != ThemeMode.entries.lastIndex) {
+                        HorizontalDivider(color = Gray100)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Text(
+                text = "기본 내비 설정",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = titleColor,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "길안내 버튼을 눌렀을 때 먼저 실행할 내비 앱을 선택해 주세요.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = bodyColor,
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = surfaceColor),
             ) {
                 NavigationProvider.entries.forEachIndexed { index, provider ->
                     NavigationOptionRow(
@@ -461,12 +513,15 @@ private fun PageTopBar(
     title: String,
     onBack: () -> Unit,
 ) {
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+
     TopAppBar(
         title = {
             Text(
                 text = title,
                 fontWeight = FontWeight.Bold,
-                color = Gray900,
+                color = onSurfaceColor,
             )
         },
         navigationIcon = {
@@ -474,12 +529,12 @@ private fun PageTopBar(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "back",
-                    tint = Gray900,
+                    tint = onSurfaceColor,
                 )
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color.White,
+            containerColor = surfaceColor,
         ),
     )
 }
@@ -740,6 +795,55 @@ private fun NavigationOptionRow(
                     color = Gray400,
                 )
             }
+        }
+
+        RadioButton(
+            selected = selected,
+            onClick = onSelect,
+        )
+    }
+}
+
+@Composable
+private fun ThemeModeOptionRow(
+    mode: ThemeMode,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    val title = when (mode) {
+        ThemeMode.SYSTEM -> "시스템 설정 따르기"
+        ThemeMode.LIGHT -> "라이트 모드"
+        ThemeMode.DARK -> "다크 모드"
+    }
+    val description = when (mode) {
+        ThemeMode.SYSTEM -> "휴대폰의 다크모드 설정에 맞춰 자동으로 적용돼요."
+        ThemeMode.LIGHT -> "항상 밝은 화면으로 표시해요."
+        ThemeMode.DARK -> "항상 어두운 화면으로 표시해요."
+    }
+    val titleColor = MaterialTheme.colorScheme.onSurface
+    val bodyColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelect)
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = titleColor,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = bodyColor,
+            )
         }
 
         RadioButton(

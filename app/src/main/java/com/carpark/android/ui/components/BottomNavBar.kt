@@ -3,7 +3,6 @@ package com.carpark.android.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -21,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.carpark.android.R
 import com.carpark.android.data.model.TabId
 import com.carpark.android.ui.theme.*
+import com.carpark.android.ui.theme.isAppInDarkTheme
 
 @Composable
 fun BottomNavBar(
@@ -28,7 +28,7 @@ fun BottomNavBar(
     onTabChange: (TabId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = isAppInDarkTheme()
     val barBg = if (isDark) BarBgDark else BarBgLight
     val activeColor = if (isDark) BarActiveDark else BarActiveLight
     val inactiveColor = if (isDark) BarInactiveDark else BarInactiveLight

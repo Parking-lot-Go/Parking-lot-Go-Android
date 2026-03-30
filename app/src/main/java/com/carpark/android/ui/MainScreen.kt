@@ -1,7 +1,6 @@
 package com.carpark.android.ui
 
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,6 +34,7 @@ import com.carpark.android.ui.components.SearchResultsSheet
 import com.carpark.android.ui.components.SavedBottomSheet
 import com.carpark.android.ui.detail.DetailScreen
 import com.carpark.android.ui.mypage.MyPageScreen
+import com.carpark.android.ui.theme.isAppInDarkTheme
 import com.carpark.android.viewmodel.ParkingViewModel
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -49,7 +49,7 @@ fun MainScreen(
     val authPreferences = remember(context) { AuthPreferences(context) }
     val settingsPreferences = remember(context) { AppSettingsPreferences(context) }
 
-    val isDarkMode = isSystemInDarkTheme()
+    val isDarkMode = isAppInDarkTheme()
     val hideHeader = state.detailLot != null || state.savedExpanded || state.nearbyExpanded
     val isKeyboardVisible = WindowInsets.isImeVisible
     var isSearchFocused by remember { mutableStateOf(false) }
