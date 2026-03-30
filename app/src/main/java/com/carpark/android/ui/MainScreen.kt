@@ -2,6 +2,7 @@ package com.carpark.android.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
@@ -9,7 +10,9 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,6 +36,7 @@ import com.carpark.android.ui.detail.DetailScreen
 import com.carpark.android.ui.mypage.MyPageScreen
 import com.carpark.android.viewmodel.ParkingViewModel
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MainScreen(
     viewModel: ParkingViewModel,
@@ -46,6 +50,9 @@ fun MainScreen(
 
     val isDarkMode = isSystemInDarkTheme()
     val hideHeader = state.detailLot != null || state.savedExpanded || state.nearbyExpanded
+    val isKeyboardVisible = WindowInsets.isImeVisible
+    var isSearchFocused by remember { mutableStateOf(false) }
+    val shouldHideBottomNav = isKeyboardVisible && isSearchFocused
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -104,6 +111,7 @@ fun MainScreen(
                                 searchQuery = state.searchQuery,
                                 onSearchChange = viewModel::updateSearchQuery,
                                 onSearch = viewModel::searchPlaces,
+                                onSearchFocusChange = { isSearchFocused = it },
                                 centerRegion = state.centerRegion,
                                 dataMode = state.mode,
                                 onModeChange = viewModel::changeMode,
@@ -196,10 +204,12 @@ fun MainScreen(
                 }
             }
 
-            BottomNavBar(
-                activeTab = state.activeTab,
-                onTabChange = viewModel::onTabChange,
-            )
+            if (!shouldHideBottomNav) {
+                BottomNavBar(
+                    activeTab = state.activeTab,
+                    onTabChange = viewModel::onTabChange,
+                )
+            }
         }
 
         if (state.activeTab != TabId.MY) {

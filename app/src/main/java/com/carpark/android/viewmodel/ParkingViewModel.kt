@@ -419,15 +419,34 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
             val lat = location?.latitude ?: 37.27903037476364
             val lng = location?.longitude ?: 127.46299871026446
             _uiState.update { it.copy(gpsLoading = false) }
-            doNearbySearch(lat, lng)
+            executeNearbySearch(
+                lat = lat,
+                lng = lng,
+                updateUserLocation = true,
+                moveCamera = true,
+            )
         }
     }
 
     fun doNearbySearch(lat: Double, lng: Double) {
+        executeNearbySearch(
+            lat = lat,
+            lng = lng,
+            updateUserLocation = true,
+            moveCamera = true,
+        )
+    }
+
+    private fun executeNearbySearch(
+        lat: Double,
+        lng: Double,
+        updateUserLocation: Boolean,
+        moveCamera: Boolean,
+    ) {
         _uiState.update {
             it.copy(
-                userLocation = LatLngPoint(lat, lng),
-                panTo = LatLngPoint(lat, lng),
+                userLocation = if (updateUserLocation) LatLngPoint(lat, lng) else it.userLocation,
+                panTo = if (moveCamera) LatLngPoint(lat, lng) else it.panTo,
             )
         }
         viewModelScope.launch {
@@ -456,8 +475,22 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun reSearchNearby() {
-        val center = _uiState.value.userLocation ?: return
-        doNearbySearch(center.lat, center.lng)
+        val bounds = currentBounds
+        val center = if (bounds != null) {
+            LatLngPoint(
+                lat = (bounds.swLat + bounds.neLat) / 2,
+                lng = (bounds.swLng + bounds.neLng) / 2,
+            )
+        } else {
+            _uiState.value.userLocation
+        } ?: return
+
+        executeNearbySearch(
+            lat = center.lat,
+            lng = center.lng,
+            updateUserLocation = false,
+            moveCamera = false,
+        )
     }
 
     fun closeNearbySheet() {

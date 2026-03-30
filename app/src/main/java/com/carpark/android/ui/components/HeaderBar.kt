@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.onFocusChanged
 import com.carpark.android.R
 import com.carpark.android.data.model.DataMode
 import com.carpark.android.ui.theme.*
@@ -36,6 +37,7 @@ fun HeaderBar(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     onSearch: (String) -> Unit,
+    onSearchFocusChange: (Boolean) -> Unit,
     centerRegion: String,
     dataMode: DataMode,
     onModeChange: (DataMode) -> Unit,
@@ -72,13 +74,15 @@ fun HeaderBar(
                 painter = painterResource(R.drawable.ic_search_icon),
                 contentDescription = null,
                 tint = Color.Unspecified,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(28.dp),
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(12.dp))
             BasicTextField(
                 value = searchQuery,
                 onValueChange = onSearchChange,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { onSearchFocusChange(it.isFocused) },
                 singleLine = true,
                 textStyle = LocalTextStyle.current.copy(fontSize = 15.sp, color = inputText),
                 cursorBrush = SolidColor(active),
