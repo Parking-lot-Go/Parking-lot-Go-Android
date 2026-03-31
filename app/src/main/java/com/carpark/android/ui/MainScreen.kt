@@ -4,9 +4,12 @@ import android.graphics.Rect
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -90,7 +93,7 @@ fun MainScreen(
                             state.isNearbyMode && state.sheetOpen -> maxHeight * 0.55f + 16.dp
                             state.savedExpanded && state.savedOpen -> maxHeight * 0.92f + 16.dp
                             state.savedOpen -> maxHeight * 0.50f + 16.dp
-                            state.selectedLot != null -> 240.dp
+                            state.selectedLot != null -> 256.dp
                             else -> 16.dp
                         },
                         label = "fab_bottom",
@@ -128,6 +131,28 @@ fun MainScreen(
                                 centerRegion = state.centerRegion,
                                 dataMode = state.mode,
                                 onModeChange = viewModel::changeMode,
+                            )
+                        }
+                    }
+
+                    if (state.isMapTooZoomedOut && !state.isNearbyMode) {
+                        Card(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 92.dp, start = 20.dp, end = 20.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isDarkMode) {
+                                    Color(0xFF111827).copy(alpha = 0.92f)
+                                } else {
+                                    Color.White.copy(alpha = 0.96f)
+                                }
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                        ) {
+                            Text(
+                                text = "주차장을 조회하기에는 너무 멀어요",
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                color = if (isDarkMode) Color.White else Color(0xFF111827),
                             )
                         }
                     }

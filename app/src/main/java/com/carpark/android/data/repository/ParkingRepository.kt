@@ -33,7 +33,8 @@ class ParkingRepository {
             .map { s ->
                 ParkingLot(
                     id = s.id,
-                    parkingName = s.parkingName,
+                    parkingName = s.parkingName ?: "",
+                    address = s.address ?: "",
                     lat = s.lat.toString(),
                     lng = s.lng.toString(),
                     totalCapacity = s.totalCapacity,
@@ -89,16 +90,8 @@ class ParkingRepository {
         query: String,
         bounds: MapBounds? = null,
     ): List<KakaoPlace> {
-        val centerLng = bounds?.let { (it.swLng + it.neLng) / 2.0 }
-        val centerLat = bounds?.let { (it.swLat + it.neLat) / 2.0 }
-        val radius = bounds?.let { estimateRadiusMeters(it) }
-
         return kakaoLocalApi.searchKeyword(
             query = query,
-            longitude = centerLng,
-            latitude = centerLat,
-            radius = radius,
-            sort = if (centerLat != null && centerLng != null) "distance" else null,
             size = 10,
         ).documents
     }

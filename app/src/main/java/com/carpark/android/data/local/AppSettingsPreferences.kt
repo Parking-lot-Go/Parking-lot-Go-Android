@@ -24,6 +24,14 @@ class AppSettingsPreferences(context: Context) {
         } ?: ThemeMode.SYSTEM
         set(value) = prefs.edit().putString(KEY_THEME_MODE, value.serverValue).apply()
 
+    var serviceNotificationsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SERVICE_NOTIFICATIONS, true)
+        set(value) = prefs.edit().putBoolean(KEY_SERVICE_NOTIFICATIONS, value).apply()
+
+    var parkingAlertsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_PARKING_ALERTS, true)
+        set(value) = prefs.edit().putBoolean(KEY_PARKING_ALERTS, value).apply()
+
     val themeModeFlow: Flow<ThemeMode> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == KEY_THEME_MODE) {
@@ -42,5 +50,7 @@ class AppSettingsPreferences(context: Context) {
         private const val PREF_NAME = "carpark"
         private const val KEY_PREFERRED_NAVIGATION = "preferredNav"
         private const val KEY_THEME_MODE = "themeMode"
+        private const val KEY_SERVICE_NOTIFICATIONS = "serviceNotifications"
+        private const val KEY_PARKING_ALERTS = "parkingAlerts"
     }
 }

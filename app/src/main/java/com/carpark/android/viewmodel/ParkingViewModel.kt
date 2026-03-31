@@ -51,6 +51,7 @@ data class ParkingUiState(
     val panTo: LatLngPoint? = null,
     val userLocation: LatLngPoint? = null,
     val userBearing: Float? = null,
+    val isMapTooZoomedOut: Boolean = false,
 )
 
 data class LatLngPoint(val lat: Double, val lng: Double)
@@ -65,7 +66,9 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     val uiState: StateFlow<ParkingUiState> = _uiState.asStateFlow()
 
     private var refreshJob: Job? = null
+    private var boundsUpdateJob: Job? = null
     private var currentBounds: MapBounds? = null
+    private var currentZoomLevel: Int = 13
     private var savedNextCursor: Long? = null
     private var currentDistrict: String? = null
 
@@ -92,6 +95,10 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
 
     companion object {
         private const val REFRESH_INTERVAL = 30_000L
+        private const val MIN_QUERY_ZOOM_LEVEL = 12
+        private const val BOUNDS_UPDATE_DEBOUNCE_MS = 400L
+        /** 이전 bounds 대비 이 비율 이상 변해야 재로딩 (0.3 = 30%) */
+        private const val BOUNDS_CHANGE_THRESHOLD = 0.3
     }
 
     init {
@@ -164,21 +171,71 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
 
     // --- Public Actions ---
 
-    fun updateBounds(bounds: MapBounds, region: String? = null) {
+    fun updateBounds(bounds: MapBounds, region: String? = null, zoomLevel: Int) {
+        val prevBounds = currentBounds
+        val prevZoom = currentZoomLevel
         currentBounds = bounds
+        currentZoomLevel = zoomLevel
+        val isTooFar = zoomLevel <= MIN_QUERY_ZOOM_LEVEL
         if (!region.isNullOrBlank()) {
             val parts = region.split(" ")
             currentDistrict = if (parts.size > 1) parts[1].trim() else null
             _uiState.update { it.copy(centerRegion = region) }
         }
+        if (isTooFar) {
+            boundsUpdateJob?.cancel()
+            refreshJob?.cancel()
+            _uiState.update {
+                it.copy(
+                    isMapTooZoomedOut = true,
+                    parkingLots = emptyList(),
+                    selectedLot = null,
+                    selectedNearbyIndex = -1,
+                )
+            }
+            return
+        }
+        _uiState.update { it.copy(isMapTooZoomedOut = false) }
         if (_uiState.value.isNearbyMode) return
-        loadParkingLots(_uiState.value.mode, bounds, currentDistrict)
-        startAutoRefresh()
+
+        // 줌 레벨이 같고 살짝 이동한 경우 재로딩 스킵
+        if (prevZoom == zoomLevel && prevBounds != null && !hasBoundsChangedEnough(prevBounds, bounds)) {
+            return
+        }
+
+        boundsUpdateJob?.cancel()
+        boundsUpdateJob = viewModelScope.launch {
+            delay(BOUNDS_UPDATE_DEBOUNCE_MS)
+            loadParkingLots(_uiState.value.mode, bounds, currentDistrict)
+            startAutoRefresh()
+        }
+    }
+
+    private fun hasBoundsChangedEnough(old: MapBounds, new: MapBounds): Boolean {
+        val oldLatSpan = old.neLat - old.swLat
+        val oldLngSpan = old.neLng - old.swLng
+        if (oldLatSpan == 0.0 || oldLngSpan == 0.0) return true
+        val latShift = Math.abs((new.swLat + new.neLat) / 2 - (old.swLat + old.neLat) / 2)
+        val lngShift = Math.abs((new.swLng + new.neLng) / 2 - (old.swLng + old.neLng) / 2)
+        return latShift / oldLatSpan > BOUNDS_CHANGE_THRESHOLD ||
+            lngShift / oldLngSpan > BOUNDS_CHANGE_THRESHOLD
     }
 
     fun changeMode(newMode: DataMode) {
         _uiState.update { it.copy(mode = newMode, parkingLots = emptyList()) }
+        boundsUpdateJob?.cancel()
         refreshJob?.cancel()
+        if (!_uiState.value.isNearbyMode && currentZoomLevel <= MIN_QUERY_ZOOM_LEVEL) {
+            _uiState.update {
+                it.copy(
+                    isMapTooZoomedOut = true,
+                    parkingLots = emptyList(),
+                    selectedLot = null,
+                    selectedNearbyIndex = -1,
+                )
+            }
+            return
+        }
         loadParkingLots(newMode, currentBounds, currentDistrict)
         if (newMode == DataMode.REALTIME) startAutoRefresh()
     }
@@ -402,7 +459,13 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     fun searchPlaces(query: String) {
         val trimmed = query.trim()
         if (trimmed.isBlank()) {
-            _uiState.update { it.copy(searchPlaces = emptyList(), searchResultsOpen = false) }
+            _uiState.update {
+                it.copy(
+                    searchPlaces = emptyList(),
+                    searchResultsOpen = false,
+                    searchPageOpen = false,
+                )
+            }
             return
         }
 
@@ -424,26 +487,39 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 }
 
                 val results = repository.searchPlaces(trimmed, currentBounds)
-                _uiState.update {
-                    it.copy(
-                        searchPlaces = results,
-                        searchResultsOpen = results.isNotEmpty(),
-                        loading = false,
-                        error = if (results.isEmpty()) "No Kakao map results found" else null,
-                    )
-                }
+                val first = results.firstOrNull()
 
-                results.firstOrNull()?.let { first ->
+                if (first == null) {
                     _uiState.update {
                         it.copy(
-                            panTo = LatLngPoint(first.latitude, first.longitude),
-                            activeTab = TabId.HOME,
+                            searchPlaces = emptyList(),
+                            searchResultsOpen = false,
+                            loading = false,
+                            error = "No Kakao map results found",
                         )
                     }
+                    return@launch
+                }
+
+                _uiState.update {
+                    it.copy(
+                        searchPlaces = listOf(first),
+                        searchResultsOpen = false,
+                        loading = false,
+                        error = null,
+                        activeTab = TabId.HOME,
+                        isNearbyMode = false,
+                        sheetOpen = false,
+                        nearbyExpanded = false,
+                        selectedLot = null,
+                        selectedNearbyIndex = -1,
+                        panTo = LatLngPoint(first.latitude, first.longitude),
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
+                        searchPlaces = emptyList(),
                         loading = false,
                         searchResultsOpen = false,
                         error = e.message ?: "Kakao search failed",
@@ -456,6 +532,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     fun selectSearchPlace(place: KakaoPlace) {
         _uiState.update {
             it.copy(
+                searchPlaces = listOf(place),
                 searchResultsOpen = false,
                 searchPageOpen = false,
                 panTo = LatLngPoint(place.latitude, place.longitude),
@@ -506,6 +583,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
             it.copy(
                 userLocation = if (updateUserLocation) LatLngPoint(lat, lng) else it.userLocation,
                 panTo = if (moveCamera) LatLngPoint(lat, lng) else it.panTo,
+                isMapTooZoomedOut = false,
             )
         }
         viewModelScope.launch {
@@ -555,7 +633,21 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun closeNearbySheet() {
-        _uiState.update { it.copy(sheetOpen = false, isNearbyMode = false, nearbyExpanded = false) }
+        boundsUpdateJob?.cancel()
+        _uiState.update {
+            it.copy(
+                sheetOpen = false,
+                isNearbyMode = false,
+                nearbyExpanded = false,
+                isMapTooZoomedOut = currentZoomLevel <= MIN_QUERY_ZOOM_LEVEL,
+                selectedLot = null,
+                selectedNearbyIndex = -1,
+            )
+        }
+        if (currentZoomLevel <= MIN_QUERY_ZOOM_LEVEL) {
+            _uiState.update { it.copy(parkingLots = emptyList()) }
+            return
+        }
         loadParkingLots(_uiState.value.mode, currentBounds, currentDistrict)
         startAutoRefresh()
     }

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -40,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -106,6 +108,11 @@ fun MyPageScreen(
             onBack = onBack,
             modifier = modifier,
         )
+        MyPageRoute.NOTIFICATIONS -> NotificationSettingsPage(
+            settingsPreferences = settingsPreferences,
+            onBack = onBack,
+            modifier = modifier,
+        )
         MyPageRoute.TERMS -> TermsPage(
             onBack = onBack,
             modifier = modifier,
@@ -163,12 +170,6 @@ private fun MyPageHome(
                 title = "계정",
                 items = listOf(
                     MenuItemData(
-                        title = "환경설정",
-                        subtitle = "기본 내비 설정을 변경할 수 있어요",
-                        icon = Icons.Default.Settings,
-                        onClick = { onNavigate(MyPageRoute.SETTINGS) },
-                    ),
-                    MenuItemData(
                         title = "이용 약관",
                         subtitle = "서비스 이용 조건을 확인해 주세요",
                         icon = Icons.Default.Description,
@@ -192,6 +193,26 @@ private fun MyPageHome(
                                 ),
                             )
                         },
+                    ),
+                ),
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            MenuSection(
+                title = "시스템 설정",
+                items = listOf(
+                    MenuItemData(
+                        title = "환경설정",
+                        subtitle = "테마와 기본 길안내 앱을 설정할 수 있어요",
+                        icon = Icons.Default.Settings,
+                        onClick = { onNavigate(MyPageRoute.SETTINGS) },
+                    ),
+                    MenuItemData(
+                        title = "알림 설정",
+                        subtitle = "공지와 주차 관련 알림 수신 여부를 관리해요",
+                        icon = Icons.Default.Notifications,
+                        onClick = { onNavigate(MyPageRoute.NOTIFICATIONS) },
                     ),
                 ),
             )
@@ -453,6 +474,78 @@ private fun SettingsPage(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                     }
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NotificationSettingsPage(
+    settingsPreferences: AppSettingsPreferences,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var serviceNotificationsEnabled by remember {
+        mutableStateOf(settingsPreferences.serviceNotificationsEnabled)
+    }
+    var parkingAlertsEnabled by remember {
+        mutableStateOf(settingsPreferences.parkingAlertsEnabled)
+    }
+    val backgroundColor = MaterialTheme.colorScheme.background
+
+    Scaffold(
+        modifier = modifier,
+        containerColor = backgroundColor,
+        topBar = {
+            PageTopBar(title = "알림 설정", onBack = onBack)
+        },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(backgroundColor)
+                .padding(innerPadding)
+                .padding(20.dp),
+        ) {
+            Text(
+                text = "앱 알림",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "서비스 소식과 주차 관련 알림을 받을지 선택할 수 있어요.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                NotificationToggleRow(
+                    title = "서비스 알림",
+                    description = "공지사항과 주요 업데이트 알림을 받아요",
+                    checked = serviceNotificationsEnabled,
+                    onCheckedChange = {
+                        serviceNotificationsEnabled = it
+                        settingsPreferences.serviceNotificationsEnabled = it
+                    },
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                NotificationToggleRow(
+                    title = "주차 알림",
+                    description = "주차 관련 안내와 이용 알림을 받아요",
+                    checked = parkingAlertsEnabled,
+                    onCheckedChange = {
+                        parkingAlertsEnabled = it
+                        settingsPreferences.parkingAlertsEnabled = it
+                    },
+                )
             }
         }
     }
@@ -759,6 +852,45 @@ private fun MenuRow(item: MenuItemData) {
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
             tint = secondaryText,
+        )
+    }
+}
+
+@Composable
+private fun NotificationToggleRow(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Spacer(Modifier.size(12.dp))
+
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
         )
     }
 }

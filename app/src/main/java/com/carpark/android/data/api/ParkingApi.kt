@@ -7,6 +7,7 @@ import com.carpark.android.data.model.KakaoLoginRequest
 import com.carpark.android.data.model.KakaoLoginResponse
 import com.carpark.android.data.model.ParkingLot
 import com.carpark.android.data.model.ParkingResponse
+import com.carpark.android.data.model.TokenReissueRequest
 import com.google.gson.JsonElement
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -20,6 +21,11 @@ interface ParkingApi {
     suspend fun loginWithKakao(
         @Body request: KakaoLoginRequest,
     ): ApiResponse<KakaoLoginResponse>
+
+    @POST("auth/reissue")
+    suspend fun reissueTokens(
+        @Body request: TokenReissueRequest,
+    ): ApiResponse<com.carpark.android.data.model.AuthTokenPair>
 
     @GET("users/me")
     suspend fun fetchMyProfile(): ApiResponse<AuthUser>

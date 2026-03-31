@@ -8,6 +8,7 @@ import com.carpark.android.data.api.RetrofitClient
 import com.carpark.android.data.local.AuthPreferences
 import com.carpark.android.data.local.SessionManager
 import com.carpark.android.data.model.KakaoLoginRequest
+import com.carpark.android.data.model.errorMessageOrDefault
 import com.kakao.sdk.auth.model.OAuthToken
 import com.kakao.sdk.common.model.ClientError
 import com.kakao.sdk.common.model.ClientErrorCause
@@ -106,7 +107,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         )
 
         if (!response.success || response.data == null) {
-            throw IllegalStateException(response.message.ifBlank { "Server login failed" })
+            throw IllegalStateException(response.errorMessageOrDefault("Server login failed"))
         }
 
         val user = response.data.user

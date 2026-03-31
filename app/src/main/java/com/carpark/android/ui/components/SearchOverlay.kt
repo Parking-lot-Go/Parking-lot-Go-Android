@@ -178,23 +178,8 @@ fun SearchOverlay(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
             ) {
-                Column {
-                    Text(
-                        text = "최근 검색",
-                        color = activeColor,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = "최신 10개까지 저장돼요",
-                        color = hintColor,
-                        fontSize = 12.sp,
-                    )
-                }
-
                 if (recentSearches.isNotEmpty()) {
                     TextButton(onClick = onDeleteAll) {
                         Text("전체 삭제")
@@ -202,7 +187,7 @@ fun SearchOverlay(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             if (recentSearches.isEmpty()) {
                 Box(

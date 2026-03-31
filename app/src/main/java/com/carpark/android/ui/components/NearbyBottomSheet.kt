@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -49,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.MaterialTheme
 import com.carpark.android.data.model.NearbyParkingLot
-import com.carpark.android.ui.theme.Amber
 import com.carpark.android.ui.theme.Gray100
 import com.carpark.android.ui.theme.Gray300
 import com.carpark.android.ui.theme.Gray400
@@ -268,10 +268,10 @@ private fun NearbyItem(
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
+                .padding(top = 2.dp)
                 .size(28.dp)
                 .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp)),
             contentAlignment = Alignment.Center,
@@ -284,6 +284,7 @@ private fun NearbyItem(
         Column(modifier = Modifier.weight(1f)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
@@ -299,38 +300,39 @@ private fun NearbyItem(
                     color = Primary,
                     fontWeight = FontWeight.Medium,
                 )
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = Gray400,
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .size(20.dp),
+                )
             }
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (lot.feeType == "유료") {
-                    Text(
-                        text = "유료",
-                        fontSize = 11.sp,
-                        color = Amber,
-                        modifier = Modifier
-                            .background(Amber.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                }
                 if (lot.basicFee > 0) {
                     Text(
-                        text = "${numberFmt.format(lot.basicFee)}원 ${lot.basicTime}분",
+                        text = "${numberFmt.format(lot.basicFee)}원 / ${lot.basicTime}분",
+                        fontSize = 12.sp,
+                        color = Gray500,
+                    )
+                } else {
+                    Text(
+                        text = "무료",
                         fontSize = 12.sp,
                         color = Gray500,
                     )
                 }
                 if (lot.totalCapacity > 0) {
                     Text(
-                        text = "총 ${lot.totalCapacity}면",
+                        text = "· ${lot.totalCapacity}면",
                         fontSize = 12.sp,
                         color = Gray400,
                     )
                 }
             }
         }
-
-        Spacer(Modifier.width(8.dp))
-        Text(">", fontSize = 18.sp, color = Gray300)
     }
 }
 

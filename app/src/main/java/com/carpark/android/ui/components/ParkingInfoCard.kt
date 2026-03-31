@@ -1,6 +1,7 @@
 package com.carpark.android.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.res.painterResource
 import com.carpark.android.R
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -37,8 +39,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.carpark.android.data.model.DataMode
@@ -53,6 +58,7 @@ import com.carpark.android.ui.theme.Gray700
 import com.carpark.android.ui.theme.Gray900
 import com.carpark.android.ui.theme.Green
 import com.carpark.android.ui.theme.Red
+import com.carpark.android.ui.theme.isAppInDarkTheme
 import com.carpark.android.util.NavigationHelper
 import java.text.NumberFormat
 import java.util.Locale
@@ -171,7 +177,28 @@ fun ParkingInfoCard(
 ) {
     val context = LocalContext.current
     val isRealtime = dataMode == DataMode.REALTIME
+    val isDark = isAppInDarkTheme()
     val statusColor = if (isRealtime) getStatusColor(lot) else Gray400
+    val titleColor = if (isDark) Color.White else Gray900
+    val primaryBodyColor = if (isDark) Color.White.copy(alpha = 0.92f) else Gray700
+    val secondaryBodyColor = if (isDark) Color.White.copy(alpha = 0.82f) else Gray600
+    val tertiaryBodyColor = if (isDark) Color.White.copy(alpha = 0.70f) else Gray500
+    val iconColor = if (isDark) Color.White.copy(alpha = 0.72f) else Gray400
+    val actionButtonContentColor = if (isDark) Color.White.copy(alpha = 0.92f) else Gray700
+    val actionButtonBorderColor = if (isDark) Color.White.copy(alpha = 0.18f) else Gray100
+    val actionButtonContainerColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White
+    val saveIconTint = if (isSaved) Amber else actionButtonContentColor
+    val titleStyle = TextStyle(
+        shadow = if (isDark) {
+            Shadow(
+                color = Color.Black.copy(alpha = 0.35f),
+                offset = Offset(0f, 1.5f),
+                blurRadius = 6f,
+            )
+        } else {
+            Shadow(color = Color.Transparent)
+        }
+    )
 
     Card(
         modifier = modifier
@@ -192,7 +219,8 @@ fun ParkingInfoCard(
                             text = lot.parkingName,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Gray900,
+                            color = titleColor,
+                            style = titleStyle,
                         )
                         if (isRealtime) {
                             Spacer(Modifier.size(8.dp))
@@ -207,7 +235,7 @@ fun ParkingInfoCard(
                         }
                     }
                     if (lot.parkingTypeName.isNotBlank()) {
-                        Text(text = lot.parkingTypeName, fontSize = 12.sp, color = Gray500)
+                        Text(text = lot.parkingTypeName, fontSize = 12.sp, color = tertiaryBodyColor)
                     }
                 }
 
@@ -217,7 +245,7 @@ fun ParkingInfoCard(
                             if (isSaved) R.drawable.ic_star_filled else R.drawable.ic_star_outline
                         ),
                         contentDescription = "save-lot",
-                        tint = Color.Unspecified,
+                        tint = saveIconTint,
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -225,7 +253,7 @@ fun ParkingInfoCard(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "close-card",
-                        tint = Gray400,
+                        tint = iconColor,
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -240,11 +268,11 @@ fun ParkingInfoCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(text = "주차 가능", fontSize = 12.sp, color = Gray500)
+                    Text(text = "주차 가능", fontSize = 12.sp, color = tertiaryBodyColor)
                     Text(
                         text = "${lot.availableCount} / ${lot.totalCapacity}면",
                         fontSize = 13.sp,
-                        color = Gray700,
+                        color = primaryBodyColor,
                     )
                 }
                 Spacer(Modifier.height(4.dp))
@@ -262,12 +290,12 @@ fun ParkingInfoCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(text = "총 주차면", fontSize = 12.sp, color = Gray500)
+                    Text(text = "총 주차면", fontSize = 12.sp, color = tertiaryBodyColor)
                     Text(
                         text = "${lot.totalCapacity}면",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Gray700,
+                        color = primaryBodyColor,
                     )
                 }
             }
@@ -276,20 +304,20 @@ fun ParkingInfoCard(
 
             if (lot.address.isNotBlank()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Place, contentDescription = null, tint = Gray400, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Place, contentDescription = null, tint = iconColor, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.size(4.dp))
-                    Text(text = lot.address, fontSize = 12.sp, color = Gray600, maxLines = 1)
+                    Text(text = lot.address, fontSize = 12.sp, color = secondaryBodyColor, maxLines = 1)
                 }
                 Spacer(Modifier.height(4.dp))
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Schedule, contentDescription = null, tint = Gray400, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Schedule, contentDescription = null, tint = iconColor, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.size(4.dp))
                 Text(
                     text = "평일 ${formatTime(lot.weekdayStart)} ~ ${formatTime(lot.weekdayEnd)}",
                     fontSize = 12.sp,
-                    color = Gray600,
+                    color = secondaryBodyColor,
                 )
             }
 
@@ -318,6 +346,11 @@ fun ParkingInfoCard(
                     onClick = onToggleSave,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, actionButtonBorderColor),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = actionButtonContainerColor,
+                        contentColor = actionButtonContentColor,
+                    ),
                 ) {
                     Icon(
                         painter = painterResource(
@@ -325,10 +358,14 @@ fun ParkingInfoCard(
                         ),
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = Color.Unspecified,
+                        tint = saveIconTint,
                     )
                     Spacer(Modifier.size(4.dp))
-                    Text(text = if (isSaved) "저장됨" else "저장", fontSize = 13.sp)
+                    Text(
+                        text = if (isSaved) "저장됨" else "저장",
+                        fontSize = 13.sp,
+                        color = actionButtonContentColor,
+                    )
                 }
                 OutlinedButton(
                     onClick = {
@@ -341,10 +378,24 @@ fun ParkingInfoCard(
                     },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, actionButtonBorderColor),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = actionButtonContainerColor,
+                        contentColor = actionButtonContentColor,
+                    ),
                 ) {
-                    Icon(painter = painterResource(R.drawable.track_order), contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Unspecified)
+                    Icon(
+                        painter = painterResource(R.drawable.track_order),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = actionButtonContentColor,
+                    )
                     Spacer(Modifier.size(4.dp))
-                    Text(text = "길안내", fontSize = 13.sp)
+                    Text(
+                        text = "길안내",
+                        fontSize = 13.sp,
+                        color = actionButtonContentColor,
+                    )
                 }
                 Button(
                     onClick = onShowDetail,

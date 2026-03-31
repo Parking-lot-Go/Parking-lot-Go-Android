@@ -11,7 +11,7 @@ enum class TabId {
 }
 
 enum class MyPageRoute {
-    ROOT, NOTICE, CONTACT, REQUEST, SETTINGS, TERMS
+    ROOT, NOTICE, CONTACT, REQUEST, SETTINGS, NOTIFICATIONS, TERMS
 }
 
 enum class NavigationProvider {
@@ -28,12 +28,13 @@ enum class ThemeMode {
 }
 
 data class ParkingLotSummary(
-    val id: Int,
-    @SerializedName("parkingName") val parkingName: String,
-    val lat: Double,
-    val lng: Double,
-    val totalCapacity: Int,
-    val availableCount: Int,
+    val id: Int = 0,
+    @SerializedName("parkingName") val parkingName: String? = null,
+    val address: String? = null,
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+    val totalCapacity: Int = 0,
+    val availableCount: Int = 0,
     val feeType: String? = null,
 )
 
