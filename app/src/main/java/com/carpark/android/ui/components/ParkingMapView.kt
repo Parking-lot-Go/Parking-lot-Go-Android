@@ -25,20 +25,43 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 private const val TAG = "ParkingMapView"
-private const val DONG_CLUSTER_MAX_ZOOM = 15
-private const val SIGUNGU_CLUSTER_MAX_ZOOM = 14
-private const val MAX_INDIVIDUAL_MARKERS = 200
+// 실제 뷰포트 반경(m) 기반 클러스터 임계값
+private const val INDIVIDUAL_MAX_RADIUS = 2000   // ≤2000m → 개별 마커, >2000m → 그리드 클러스터
+
+private const val CLUSTER_GRID_SIZE = 3
+private const val CLUSTER_GRID_CELL_COUNT = CLUSTER_GRID_SIZE * CLUSTER_GRID_SIZE
 
 private data class ClusterMarker(
     val labelId: String,
     val centerLat: Double,
     val centerLng: Double,
     val count: Int,
-    val regionLabel: String,
 )
+
+private fun approximateVisibleRadiusMeters(bounds: MapBounds): Int {
+    val centerLat = (bounds.swLat + bounds.neLat) / 2.0
+    val centerLng = (bounds.swLng + bounds.neLng) / 2.0
+    val latRadius = haversineMeters(centerLat, centerLng, bounds.neLat, centerLng)
+    val lngRadius = haversineMeters(centerLat, centerLng, centerLat, bounds.neLng)
+    return max(latRadius, lngRadius)
+}
+
+private fun haversineMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Int {
+    val r = 6371000.0
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLng = Math.toRadians(lng2 - lng1)
+    val a = sin(dLat / 2).pow(2) +
+        cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLng / 2).pow(2)
+    return (r * 2 * atan2(sqrt(a), sqrt(1 - a))).toInt()
+}
 
 private fun buildMarkerRenderKey(
     parkingLots: List<ParkingLot>,
@@ -281,191 +304,83 @@ private fun createLotLabelStyles(
     )
 }
 
-private enum class ClusterLevel { SIGUNGU, DONG }
-
-private data class ParsedAddress(
-    val sido: String?,
-    val si: String?,
-    val gun: String?,
-    val gu: String?,
-    val eupMyeonDong: String?,
-) {
-    val sidoNormalized: String?
-        get() = sido?.let(::normalizeSido)
-
-    val isMajorMetro: Boolean
-        get() = sido != null && MAJOR_METRO_PREFIXES.any { sido.startsWith(it) }
-}
-
-private val MAJOR_METRO_PREFIXES = setOf(
-    "서울", "부산", "대구", "인천", "광주", "대전", "울산",
-)
-
-private val SHORT_SIDO_NAMES = setOf(
-    "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
-    "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
-)
-
-private val addressParseCache = HashMap<Int, ParsedAddress>(512)
-
-private fun normalizeSido(sido: String): String {
-    return when {
-        sido.endsWith("특별자치시") -> sido.removeSuffix("특별자치시") + "시"
-        sido.endsWith("특별시") -> sido.removeSuffix("특별시") + "시"
-        sido.endsWith("광역시") -> sido.removeSuffix("광역시") + "시"
-        sido.endsWith("특별자치도") -> sido.removeSuffix("특별자치도") + "도"
-        sido in setOf("서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종") -> "${sido}시"
-        sido in setOf("경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남") -> "${sido}도"
-        sido == "제주" -> "제주도"
-        else -> sido
-    }
-}
-
-private fun parseAddressString(source: String): ParsedAddress {
-    val tokens = source
-        .replace("(", " ").replace(")", " ")
-        .replace(",", " ").replace("/", " ")
-        .split(Regex("\\s+"))
-        .filter { it.length > 1 }
-
-    var sido: String? = null
-    var si: String? = null
-    var gun: String? = null
-    var gu: String? = null
-    var eupMyeonDong: String? = null
-
-    for (token in tokens) {
-        when {
-            // 시도 (full form)
-            sido == null && (
-                token.endsWith("특별시") || token.endsWith("광역시") ||
-                    token.endsWith("특별자치시") || token.endsWith("특별자치도") ||
-                    (token.endsWith("도") && token.length >= 2 && !token.endsWith("동"))
-                ) -> sido = token
-
-            // 시도 (short form)
-            sido == null && token in SHORT_SIDO_NAMES -> sido = token
-
-            // 시 (under 도, not 시도-level)
-            si == null && token.endsWith("시") &&
-                !token.endsWith("특별시") && !token.endsWith("광역시") &&
-                !token.endsWith("특별자치시") -> si = token
-
-            // 군
-            gun == null && token.endsWith("군") -> gun = token
-
-            // 구
-            gu == null && token.endsWith("구") -> gu = token
-
-            // 동/읍/면/리
-            eupMyeonDong == null && (
-                token.endsWith("동") || token.endsWith("읍") ||
-                    token.endsWith("면") || token.endsWith("리")
-                ) -> eupMyeonDong = token
-        }
-    }
-
-    return ParsedAddress(sido, si, gun, gu, eupMyeonDong)
-}
-
-private fun parseAddress(lot: ParkingLot): ParsedAddress {
-    addressParseCache[lot.id]?.let { return it }
-    val source = lot.address.ifBlank { "${lot.district} ${lot.parkingName}" }
-    return parseAddressString(source).also { addressParseCache[lot.id] = it }
-}
-
-
-private fun getClusterKey(parsed: ParsedAddress, level: ClusterLevel): String? {
-    return when (level) {
-        ClusterLevel.SIGUNGU -> {
-            val parts = listOfNotNull(parsed.sidoNormalized, parsed.si, parsed.gu, parsed.gun)
-            parts.joinToString(" ").ifBlank { null }
-        }
-        ClusterLevel.DONG -> {
-            val parent = listOfNotNull(parsed.sidoNormalized, parsed.si, parsed.gu, parsed.gun)
-                .joinToString(" ")
-            val dong = parsed.eupMyeonDong
-            if (dong != null) {
-                "$parent $dong".trim()
-            } else {
-                // 도로명주소 등 동 정보가 없으면 구/시/군으로 폴백
-                parent.ifBlank { null }
-            }
-        }
-    }
-}
-
-private fun getClusterLabel(parsed: ParsedAddress, level: ClusterLevel): String? {
-    return when (level) {
-        ClusterLevel.SIGUNGU -> parsed.gu ?: parsed.si ?: parsed.gun ?: parsed.sidoNormalized
-        ClusterLevel.DONG -> parsed.eupMyeonDong ?: parsed.gu ?: parsed.si ?: parsed.gun
-    }
-}
-
-private fun resolveClusterLevel(zoomLevel: Int, lotCount: Int): ClusterLevel? {
-    // Force clustering when too many markers even at high zoom
-    if (lotCount > MAX_INDIVIDUAL_MARKERS && zoomLevel > DONG_CLUSTER_MAX_ZOOM) {
-        return ClusterLevel.DONG
-    }
-    return when {
-        zoomLevel > DONG_CLUSTER_MAX_ZOOM -> null
-        zoomLevel > SIGUNGU_CLUSTER_MAX_ZOOM -> ClusterLevel.DONG
-        else -> ClusterLevel.SIGUNGU
-    }
-}
-
-private fun createClusterMarkerBitmap(
+private fun createClusterBadgeBitmap(
     context: Context,
-    regionLabel: String,
     count: Int,
     isDarkMode: Boolean,
 ): Bitmap {
     val density = context.resources.displayMetrics.density
-    val label = "${regionLabel.take(5)} ${count}개"
+    val countText = if (count >= 1000) "999+" else count.toString()
 
     val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (isDarkMode) android.graphics.Color.parseColor("#E5E7EB")
-        else android.graphics.Color.parseColor("#1F2937")
-        textSize = 10f * density
+        color = if (isDarkMode) android.graphics.Color.WHITE
+            else android.graphics.Color.parseColor("#1E40AF")
+        textSize = 13f * density
         typeface = Typeface.DEFAULT_BOLD
         textAlign = Paint.Align.CENTER
     }
 
-    val hPad = 10f * density
-    val pillW = textPaint.measureText(label) + hPad * 2
-    val pillH = 24f * density
-    val borderW = 1.2f * density
-    val cornerR = pillH / 2
+    val textWidth = textPaint.measureText(countText)
+    val textHeight = -textPaint.ascent() + textPaint.descent()
 
-    val width = pillW.toInt().coerceAtLeast(1)
-    val height = pillH.toInt().coerceAtLeast(1)
-    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val padH = 11f * density
+    val padV = 6f * density
+    val strokeW = 1.5f * density
+    val pad = 4f * density
+
+    val innerW = textWidth + padH * 2
+    val innerH = textHeight + padV * 2
+    val totalW = (innerW + strokeW * 2 + pad * 2).toInt()
+        .coerceAtLeast((innerH + strokeW * 2 + pad * 2).toInt())
+    val totalH = (innerH + strokeW * 2 + pad * 2).toInt().coerceAtLeast(1)
+
+    val bitmap = Bitmap.createBitmap(totalW, totalH, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
-    val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
+
+    val cx = totalW / 2f
+    val cy = totalH / 2f
+    val halfW = innerW / 2
+    val halfH = innerH / 2
+    val radius = 10f * density
 
     // 반투명 배경
-    canvas.drawRoundRect(rect, cornerR, cornerR, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (isDarkMode) android.graphics.Color.parseColor("#1F2937")
-        else android.graphics.Color.WHITE
-        alpha = 230
-    })
+    val fillColor = if (isDarkMode) android.graphics.Color.argb(180, 30, 58, 138)
+        else android.graphics.Color.argb(170, 255, 255, 255)
+    val strokeColor = if (isDarkMode) android.graphics.Color.argb(200, 96, 165, 250)
+        else android.graphics.Color.argb(220, 59, 130, 246)
 
-    // 테두리
-    val inset = borderW / 2
+    // 그림자
     canvas.drawRoundRect(
-        RectF(inset, inset, width - inset, height - inset),
-        cornerR, cornerR,
+        RectF(cx - halfW + 0.5f * density, cy - halfH + density,
+            cx + halfW + 0.5f * density, cy + halfH + density),
+        radius, radius,
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = borderW
-            color = if (isDarkMode) android.graphics.Color.parseColor("#60A5FA")
-            else android.graphics.Color.parseColor("#93C5FD")
+            color = android.graphics.Color.argb(30, 0, 0, 0)
+            maskFilter = BlurMaskFilter(2f * density, BlurMaskFilter.Blur.NORMAL)
         },
     )
 
-    // 텍스트
-    val textY = height / 2f - (textPaint.descent() + textPaint.ascent()) / 2
-    canvas.drawText(label, width / 2f, textY, textPaint)
+    // 반투명 채우기
+    canvas.drawRoundRect(
+        RectF(cx - halfW, cy - halfH, cx + halfW, cy + halfH),
+        radius, radius,
+        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = fillColor },
+    )
+
+    // 테두리
+    canvas.drawRoundRect(
+        RectF(cx - halfW, cy - halfH, cx + halfW, cy + halfH),
+        radius, radius,
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = strokeW
+            color = strokeColor
+        },
+    )
+
+    // 숫자 텍스트
+    val textY = cy - (textPaint.descent() + textPaint.ascent()) / 2
+    canvas.drawText(countText, cx, textY, textPaint)
 
     return bitmap
 }
@@ -475,96 +390,106 @@ private fun createClusterLabelStyles(
     cluster: ClusterMarker,
     isDarkMode: Boolean,
 ): LabelStyles {
-    val bitmap = createClusterMarkerBitmap(
+    val bitmap = createClusterBadgeBitmap(
         context = context,
-        regionLabel = cluster.regionLabel,
         count = cluster.count,
         isDarkMode = isDarkMode,
     )
     return LabelStyles.from(
-        LabelStyle.from(bitmap).setAnchorPoint(0.5f, 1f)
+        LabelStyle.from(bitmap).setAnchorPoint(0.5f, 0.5f)
     )
 }
 
 private fun buildClusterMarkers(
     lots: List<ParkingLot>,
-    zoomLevel: Int,
+    visibleRadiusMeters: Int,
+    bounds: MapBounds?,
 ): List<Pair<ClusterMarker?, List<ParkingLot>>> {
-    if (lots.isEmpty()) return emptyList()
+    if (lots.isEmpty() || bounds == null) return emptyList()
 
-    val clusterLevel = resolveClusterLevel(zoomLevel, lots.size) ?: return emptyList()
+    if (visibleRadiusMeters <= INDIVIDUAL_MAX_RADIUS) {
+        Log.d(TAG, "Clustering OFF: radius=${visibleRadiusMeters}m ≤ ${INDIVIDUAL_MAX_RADIUS}m → individual markers")
+        return emptyList()
+    }
+    Log.d(TAG, "Clustering ON (grid): radius=${visibleRadiusMeters}m, lots=${lots.size}")
 
-    val cellLat: Double
-    val cellLng: Double
-    when (clusterLevel) {
-        ClusterLevel.DONG -> { cellLat = 0.015; cellLng = 0.02 }
-        ClusterLevel.SIGUNGU -> { cellLat = 0.05; cellLng = 0.065 }
+    val latStep = (bounds.neLat - bounds.swLat) / CLUSTER_GRID_SIZE
+    val lngStep = (bounds.neLng - bounds.swLng) / CLUSTER_GRID_SIZE
+    if (latStep <= 0 || lngStep <= 0) return emptyList()
+
+    val gridCells = Array(CLUSTER_GRID_CELL_COUNT) { mutableListOf<ParkingLot>() }
+
+    for (lot in lots) {
+        if (lot.latDouble == 0.0 || lot.lngDouble == 0.0) continue
+        val row = ((bounds.neLat - lot.latDouble) / latStep).toInt()
+            .coerceIn(0, CLUSTER_GRID_SIZE - 1)
+        val col = ((lot.lngDouble - bounds.swLng) / lngStep).toInt()
+            .coerceIn(0, CLUSTER_GRID_SIZE - 1)
+        gridCells[row * CLUSTER_GRID_SIZE + col].add(lot)
     }
 
-    return lots
-        .filter { it.latDouble != 0.0 && it.lngDouble != 0.0 }
-        .groupBy { lot ->
-            val parsed = parseAddress(lot)
-            val key = getClusterKey(parsed, clusterLevel)
-            if (key != null) {
-                "admin:$key"
-            } else {
-                val row = kotlin.math.floor(lot.latDouble / cellLat).toInt()
-                val col = kotlin.math.floor(lot.lngDouble / cellLng).toInt()
-                "grid:$row:$col"
-            }
-        }
-        .map { (key, groupedLots) ->
-            if (groupedLots.size <= 1) {
-                null to groupedLots
-            } else {
-                val centerLat = groupedLots.map { it.latDouble }.average()
-                val centerLng = groupedLots.map { it.lngDouble }.average()
+    return gridCells.mapIndexedNotNull { index, cellLots ->
+        if (cellLots.isEmpty()) return@mapIndexedNotNull null
+        val row = index / CLUSTER_GRID_SIZE
+        val col = index % CLUSTER_GRID_SIZE
+        // 실제 주차장들의 중심점에 배치 (자연스러운 위치)
+        val centerLat = cellLots.map { it.latDouble }.average()
+        val centerLng = cellLots.map { it.lngDouble }.average()
 
-                val regionLabel = if (key.startsWith("admin:")) {
-                    val parsed = parseAddress(groupedLots.first())
-                    getClusterLabel(parsed, clusterLevel) ?: "이 지역"
-                } else {
-                    // grid 폴백: 라벨 투표 → 없으면 아무 주소 정보라도 추출
-                    groupedLots
-                        .mapNotNull { lot ->
-                            val p = parseAddress(lot)
-                            getClusterLabel(p, clusterLevel)
-                                ?: p.gu ?: p.si ?: p.gun ?: p.sidoNormalized
-                        }
-                        .groupingBy { it }
-                        .eachCount()
-                        .maxByOrNull { it.value }
-                        ?.key ?: "이 지역"
-                }
-
-                ClusterMarker(
-                    labelId = "cluster_${key.hashCode()}",
-                    centerLat = centerLat,
-                    centerLng = centerLng,
-                    count = groupedLots.size,
-                    regionLabel = regionLabel,
-                ) to groupedLots
-            }
-        }
+        ClusterMarker(
+            labelId = "cluster_${row}_${col}",
+            centerLat = centerLat,
+            centerLng = centerLng,
+            count = cellLots.size,
+        ) to cellLots
+    }
 }
 
 private fun createSearchMarkerBitmap(context: Context): Bitmap {
-    val density = context.resources.displayMetrics.density
-    val size = (18 * density).toInt()
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-    val cx = size / 2f
-    val cy = size / 2f
-    val radius = size / 2f - 2 * density
+    val dp = context.resources.displayMetrics.density
+    val pinColor = android.graphics.Color.parseColor("#2563EB")
 
-    // 흰색 테두리
-    canvas.drawCircle(cx, cy, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    // 핀 헤드 + 꼬리
+    val headR = 8f * dp
+    val border = 2f * dp
+    val tailH = 6f * dp
+    val pad = 3f * dp
+    val w = ((headR + border) * 2 + pad * 2).toInt().coerceAtLeast(1)
+    val h = ((headR + border) * 2 + tailH + pad * 2).toInt().coerceAtLeast(1)
+
+    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val cx = w / 2f
+    val cy = headR + border + pad
+
+    // 그림자
+    canvas.drawCircle(cx, cy + dp, headR + border, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.argb(25, 0, 0, 0)
+        maskFilter = BlurMaskFilter(2.5f * dp, BlurMaskFilter.Blur.NORMAL)
+    })
+
+    // 꼬리
+    val tailPath = Path().apply {
+        moveTo(cx - 4f * dp, cy + headR * 0.4f)
+        lineTo(cx, cy + headR + tailH)
+        lineTo(cx + 4f * dp, cy + headR * 0.4f)
+        close()
+    }
+    canvas.drawPath(tailPath, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pinColor })
+
+    // 흰 테두리 원
+    canvas.drawCircle(cx, cy, headR + border, Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = android.graphics.Color.WHITE
     })
-    // 빨간 점
-    canvas.drawCircle(cx, cy, radius - 1.5f * density, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = android.graphics.Color.parseColor("#EF4444")
+
+    // 파란 원
+    canvas.drawCircle(cx, cy, headR, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = pinColor
+    })
+
+    // 흰 내부 점 (위치 표시)
+    canvas.drawCircle(cx, cy, 2.5f * dp, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
     })
 
     return bitmap
@@ -593,6 +518,8 @@ fun ParkingMapView(
     val lotLabelsRef = remember { mutableStateOf<Map<Int, Label>>(emptyMap()) }
     val clusterLabelsRef = remember { mutableStateOf<Map<String, ClusterMarker>>(emptyMap()) }
     var currentZoomLevel by remember { mutableStateOf(13) }
+    var currentVisibleBounds by remember { mutableStateOf<MapBounds?>(null) }
+    var currentVisibleRadiusMeters by remember { mutableStateOf(Int.MAX_VALUE) }
     var lastMarkerRenderKey by remember { mutableStateOf<Int?>(null) }
     val latestParkingLots by rememberUpdatedState(parkingLots)
     val latestOnBoundsChange by rememberUpdatedState(onBoundsChange)
@@ -637,6 +564,7 @@ fun ParkingMapView(
         selectedLot?.id,
         isDarkMode,
         currentZoomLevel,
+        currentVisibleRadiusMeters,
         isNearbyMode,
     ) {
         val map = kakaoMap ?: return@LaunchedEffect
@@ -644,13 +572,14 @@ fun ParkingMapView(
         val labelManager = map.labelManager ?: return@LaunchedEffect
 
         try {
-            val layer = labelManager.layer ?: labelManager.addLayer(
-                LabelLayerOptions.from("parking_markers").setZOrder(1)
-            ) ?: return@LaunchedEffect
+            val layer = labelManager.getLayer("parking_markers")
+                ?: labelManager.addLayer(
+                    LabelLayerOptions.from("parking_markers").setZOrder(1)
+                ) ?: return@LaunchedEffect
 
             val clusteredEntries = if (!isNearbyMode) {
                 withContext(Dispatchers.Default) {
-                    buildClusterMarkers(parkingLots, currentZoomLevel)
+                    buildClusterMarkers(parkingLots, currentVisibleRadiusMeters, currentVisibleBounds)
                 }
             } else {
                 emptyList()
@@ -782,7 +711,7 @@ fun ParkingMapView(
             if (searchPlaces.isEmpty()) return@LaunchedEffect
 
             val bitmap = createSearchMarkerBitmap(ctx)
-            val style = LabelStyle.from(bitmap).setAnchorPoint(0.5f, 0.5f)
+            val style = LabelStyle.from(bitmap).setAnchorPoint(0.5f, 1.0f)
             val styles = LabelStyles.from(style)
 
             for (place in searchPlaces) {
@@ -876,6 +805,10 @@ fun ParkingMapView(
                                         neLng = centerLng + lngSpan / 2,
                                     )
                                     currentZoomLevel = zoomLevel
+                                    currentVisibleBounds = bounds
+                                    currentVisibleRadiusMeters = approximateVisibleRadiusMeters(bounds)
+                                    val isClustering = currentVisibleRadiusMeters > INDIVIDUAL_MAX_RADIUS
+                                    Log.d(TAG, "zoom=$zoomLevel, radius=${currentVisibleRadiusMeters}m, clustering=$isClustering")
                                     scope.launch {
                                         val region = resolveCenterRegion(ctx, centerLat, centerLng)
                                         latestOnBoundsChange(bounds, region, zoomLevel)
@@ -896,13 +829,8 @@ fun ParkingMapView(
                                     }
                                 } else if (labelId.startsWith("cluster_")) {
                                     val cluster = clusterLabelsRef.value[labelId] ?: return@setOnLabelClickListener
-                                    // 현재 레벨의 다음 단계 줌으로 이동
-                                    // 구(14) → 동(15) → 개별마커(16)
-                                    val nextZoom = when {
-                                        currentZoomLevel <= SIGUNGU_CLUSTER_MAX_ZOOM -> DONG_CLUSTER_MAX_ZOOM   // → 동 레벨 (15)
-                                        currentZoomLevel <= DONG_CLUSTER_MAX_ZOOM -> DONG_CLUSTER_MAX_ZOOM + 1  // → 개별 마커 (16)
-                                        else -> (currentZoomLevel + 1).coerceAtMost(17)
-                                    }
+                                    // 한 단계 줌인 → 반경 ~절반 → 구→동→개별 순
+                                    val nextZoom = (currentZoomLevel + 1).coerceAtMost(17)
                                     map.moveCamera(
                                         CameraUpdateFactory.newCenterPosition(
                                             LatLng.from(cluster.centerLat, cluster.centerLng),

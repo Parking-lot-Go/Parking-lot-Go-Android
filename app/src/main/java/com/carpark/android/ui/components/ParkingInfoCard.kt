@@ -178,18 +178,19 @@ fun ParkingInfoCard(
     val context = LocalContext.current
     val isRealtime = dataMode == DataMode.REALTIME
     val isDark = isAppInDarkTheme()
+    val cardContainerColor = Color.White
     val statusColor = if (isRealtime) getStatusColor(lot) else Gray400
-    val titleColor = if (isDark) Color.White else Gray900
-    val primaryBodyColor = if (isDark) Color.White.copy(alpha = 0.92f) else Gray700
-    val secondaryBodyColor = if (isDark) Color.White.copy(alpha = 0.82f) else Gray600
-    val tertiaryBodyColor = if (isDark) Color.White.copy(alpha = 0.70f) else Gray500
-    val iconColor = if (isDark) Color.White.copy(alpha = 0.72f) else Gray400
-    val actionButtonContentColor = if (isDark) Color.White.copy(alpha = 0.92f) else Gray700
-    val actionButtonBorderColor = if (isDark) Color.White.copy(alpha = 0.18f) else Gray100
-    val actionButtonContainerColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White
+    val titleColor = Gray900
+    val primaryBodyColor = Gray700
+    val secondaryBodyColor = Gray600
+    val tertiaryBodyColor = Gray500
+    val iconColor = Gray400
+    val actionButtonContentColor = Gray700
+    val actionButtonBorderColor = Gray100
+    val actionButtonContainerColor = Color.White
     val saveIconTint = if (isSaved) Amber else actionButtonContentColor
     val titleStyle = TextStyle(
-        shadow = if (isDark) {
+        shadow = if (isDark && cardContainerColor != Color.White) {
             Shadow(
                 color = Color.Black.copy(alpha = 0.35f),
                 offset = Offset(0f, 1.5f),
@@ -200,13 +201,13 @@ fun ParkingInfoCard(
         }
     )
 
-    Card(
+    androidx.compose.material3.Surface(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        color = Color.White,
+        shadowElevation = 4.dp,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(

@@ -95,7 +95,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
 
     companion object {
         private const val REFRESH_INTERVAL = 30_000L
-        private const val MIN_QUERY_ZOOM_LEVEL = 12
+        private const val MIN_QUERY_ZOOM_LEVEL = 11
         private const val BOUNDS_UPDATE_DEBOUNCE_MS = 400L
         /** 이전 bounds 대비 이 비율 이상 변해야 재로딩 (0.3 = 30%) */
         private const val BOUNDS_CHANGE_THRESHOLD = 0.3
@@ -283,7 +283,17 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        if (query.isBlank()) {
+            _uiState.update {
+                it.copy(
+                    searchQuery = "",
+                    searchPlaces = emptyList(),
+                    searchResultsOpen = false,
+                )
+            }
+        } else {
+            _uiState.update { it.copy(searchQuery = query) }
+        }
     }
 
     fun openSearchPage() {

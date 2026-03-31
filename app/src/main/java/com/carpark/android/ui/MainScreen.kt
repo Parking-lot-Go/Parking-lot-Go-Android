@@ -4,8 +4,6 @@ import android.graphics.Rect
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -136,23 +134,18 @@ fun MainScreen(
                     }
 
                     if (state.isMapTooZoomedOut && !state.isNearbyMode) {
-                        Card(
+                        Box(
                             modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(top = 92.dp, start = 20.dp, end = 20.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isDarkMode) {
-                                    Color(0xFF111827).copy(alpha = 0.92f)
-                                } else {
-                                    Color.White.copy(alpha = 0.96f)
-                                }
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 92.dp, start = 20.dp, end = 20.dp),
                         ) {
                             Text(
                                 text = "주차장을 조회하기에는 너무 멀어요",
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                color = if (isDarkMode) Color.White else Color(0xFF111827),
+                                color = if (isDarkMode) {
+                                    Color.White.copy(alpha = 0.9f)
+                                } else {
+                                    Color(0xFF111827).copy(alpha = 0.82f)
+                                },
                             )
                         }
                     }
@@ -237,11 +230,16 @@ fun MainScreen(
                             lots = state.savedLots,
                             hasMore = state.savedHasMore,
                             loading = state.savedLotsLoading,
+                            userLocation = state.userLocation,
                             onSelectLot = viewModel::selectSavedLot,
                             onRemoveLot = viewModel::removeSavedLot,
                             onClose = viewModel::closeSavedSheet,
                             onExpandChange = viewModel::setSavedExpanded,
                             onLoadMore = viewModel::loadMoreFavorites,
+                            onAddFavorite = {
+                                viewModel.closeSavedSheet()
+                                viewModel.openSearchPage()
+                            },
                         )
                     }
 

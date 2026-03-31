@@ -26,10 +26,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,8 +48,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
 import androidx.compose.material3.MaterialTheme
 import com.carpark.android.data.model.NearbyParkingLot
 import com.carpark.android.ui.theme.Gray100
@@ -81,6 +85,7 @@ fun NearbyBottomSheet(
     modifier: Modifier = Modifier,
 ) {
     var sortBy by remember { mutableStateOf("distance") }
+    var showDistanceInfo by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
 
@@ -96,7 +101,7 @@ fun NearbyBottomSheet(
         modifier = modifier,
     ) {
         BoxWithConstraints {
-            val parentHeightPx = constraints.maxHeight.toFloat()
+            val parentHeightPx = this@BoxWithConstraints.maxHeight.value * LocalDensity.current.density
             val collapsedPx = parentHeightPx * 0.55f
             val expandedPx = parentHeightPx * 0.92f
             val closePx = collapsedPx * 0.5f
@@ -164,10 +169,10 @@ fun NearbyBottomSheet(
                     )
                 }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
@@ -198,10 +203,45 @@ fun NearbyBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(
+                        verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         SortChip("거리순", sortBy == "distance") { sortBy = "distance" }
                         SortChip("요금순", sortBy == "fee") { sortBy = "fee" }
+                        Box {
+                            IconButton(
+                                onClick = { showDistanceInfo = !showDistanceInfo },
+                                modifier = Modifier.size(28.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.HelpOutline,
+                                    contentDescription = "distance-info",
+                                    tint = Gray500,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                            if (showDistanceInfo) {
+                                Popup(
+                                    alignment = Alignment.BottomCenter,
+                                    offset = IntOffset(0, with(LocalDensity.current) { (-32).dp.roundToPx() }),
+                                    onDismissRequest = { showDistanceInfo = false },
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Gray900,
+                                        shadowElevation = 4.dp,
+                                    ) {
+                                        Text(
+                                            text = if (sortBy == "fee") "표시된 요금은 실제 비용과 다를 수 있어요"
+                                            else "직선거리 기준으로 실제와 다를 수 있어요",
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                            fontSize = 12.sp,
+                                            color = Color.White,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     if (regionLabel.isNotBlank()) {
@@ -253,6 +293,7 @@ fun NearbyBottomSheet(
             }
         }
     }
+
 }
 
 @Composable

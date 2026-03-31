@@ -75,9 +75,10 @@ class ParkingRepository {
         }
 
         return lots.map { lot ->
+            val straightDistance = haversine(lat, lng, lot.latDouble, lot.lngDouble)
             NearbyParkingLot(
                 lot = lot,
-                distance = haversine(lat, lng, lot.latDouble, lot.lngDouble),
+                distance = adjustNearbyDistance(straightDistance),
             )
         }.sortedBy { it.distance }
     }
@@ -116,6 +117,14 @@ class ParkingRepository {
     }
 
     companion object {
+        private fun adjustNearbyDistance(distanceMeters: Int): Int {
+            return when {
+                distanceMeters <= 300 -> distanceMeters + 80
+                distanceMeters < 1000 -> (distanceMeters * 1.25).roundToInt()
+                else -> (distanceMeters * 1.15).roundToInt()
+            }
+        }
+
         fun haversine(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Int {
             val r = 6371000.0
             val dLat = Math.toRadians(lat2 - lat1)
