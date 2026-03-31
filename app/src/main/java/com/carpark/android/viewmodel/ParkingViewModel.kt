@@ -9,6 +9,7 @@ import android.hardware.SensorManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.carpark.android.data.local.SavedParkingPreferences
+import com.carpark.android.data.local.SearchHistoryPreferences
 import com.carpark.android.data.model.*
 import com.carpark.android.data.repository.ParkingRepository
 import com.carpark.android.util.LocationHelper
@@ -38,7 +39,9 @@ data class ParkingUiState(
     val activeTab: TabId = TabId.HOME,
     val myPageRoute: MyPageRoute = MyPageRoute.ROOT,
     val searchResultsOpen: Boolean = false,
+    val searchPageOpen: Boolean = false,
     val searchQuery: String = "",
+    val recentSearches: List<String> = emptyList(),
     val centerRegion: String = "",
     val gpsLoading: Boolean = false,
     val sheetOpen: Boolean = false,
@@ -56,6 +59,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
 
     private val repository = ParkingRepository()
     private val savedPrefs = SavedParkingPreferences(application)
+    private val searchHistoryPrefs = SearchHistoryPreferences(application)
 
     private val _uiState = MutableStateFlow(ParkingUiState())
     val uiState: StateFlow<ParkingUiState> = _uiState.asStateFlow()
@@ -114,6 +118,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
         }
         // 서버에서 즐겨찾기 로드
         viewModelScope.launch {
+            loadRecentSearches()
             loadFavorites(refresh = true)
         }
     }
@@ -224,6 +229,37 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(searchQuery = query) }
     }
 
+    fun openSearchPage() {
+        _uiState.update {
+            it.copy(
+                searchPageOpen = true,
+                searchResultsOpen = false,
+                recentSearches = searchHistoryPrefs.getRecentSearches(),
+            )
+        }
+    }
+
+    fun closeSearchPage() {
+        _uiState.update { it.copy(searchPageOpen = false) }
+    }
+
+    fun clearAllRecentSearches() {
+        searchHistoryPrefs.clearRecentSearches()
+        _uiState.update { it.copy(recentSearches = emptyList()) }
+    }
+
+    fun deleteRecentSearch(query: String) {
+        searchHistoryPrefs.removeSearches(setOf(query))
+        _uiState.update {
+            it.copy(recentSearches = searchHistoryPrefs.getRecentSearches())
+        }
+    }
+
+    fun searchFromHistory(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        searchPlaces(query)
+    }
+
     fun isSavedLot(lotId: Int): Boolean {
         return _uiState.value.savedLots.any { it.id == lotId }
     }
@@ -310,6 +346,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                     it.copy(
                         savedOpen = false,
                         savedExpanded = false,
+                        searchPageOpen = false,
                         searchResultsOpen = false,
                         activeTab = tab,
                     )
@@ -326,6 +363,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                         savedOpen = false,
                         savedExpanded = false,
                         sheetOpen = false,
+                        searchPageOpen = false,
                         activeTab = tab,
                     )
                 }
@@ -334,6 +372,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 _uiState.update {
                     it.copy(
                         sheetOpen = false,
+                        searchPageOpen = false,
                         searchResultsOpen = false,
                         activeTab = tab,
                         savedOpen = !it.savedOpen,
@@ -344,6 +383,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 _uiState.update {
                     it.copy(
                         sheetOpen = false,
+                        searchPageOpen = false,
                         searchResultsOpen = false,
                         savedOpen = false,
                         savedExpanded = false,
@@ -366,7 +406,16 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
             return
         }
 
-        _uiState.update { it.copy(searchQuery = trimmed, loading = true, error = null) }
+        searchHistoryPrefs.saveSearch(trimmed)
+        _uiState.update {
+            it.copy(
+                searchQuery = trimmed,
+                recentSearches = searchHistoryPrefs.getRecentSearches(),
+                searchPageOpen = false,
+                loading = true,
+                error = null,
+            )
+        }
 
         viewModelScope.launch {
             try {
@@ -408,6 +457,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update {
             it.copy(
                 searchResultsOpen = false,
+                searchPageOpen = false,
                 panTo = LatLngPoint(place.latitude, place.longitude),
                 searchQuery = place.place_name,
                 activeTab = TabId.HOME,
@@ -563,6 +613,9 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
             state.activeTab == TabId.MY -> {
                 _uiState.update { it.copy(activeTab = TabId.HOME, myPageRoute = MyPageRoute.ROOT) }; true
             }
+            state.searchPageOpen -> {
+                closeSearchPage(); true
+            }
             state.searchResultsOpen -> {
                 _uiState.update { it.copy(searchResultsOpen = false) }; true
             }
@@ -618,6 +671,12 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 Log.e("ParkingViewModel", "fetchMyLocation failed", e)
                 _uiState.update { it.copy(gpsLoading = false) }
             }
+        }
+    }
+
+    private fun loadRecentSearches() {
+        _uiState.update {
+            it.copy(recentSearches = searchHistoryPrefs.getRecentSearches())
         }
     }
 }

@@ -1,13 +1,15 @@
 package com.carpark.android.ui
 
+import android.graphics.Rect
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,6 +33,7 @@ import com.carpark.android.ui.components.NearbyBottomSheet
 import com.carpark.android.ui.components.NearbyParkingInfoPager
 import com.carpark.android.ui.components.ParkingInfoCard
 import com.carpark.android.ui.components.ParkingMapView
+import com.carpark.android.ui.components.SearchOverlay
 import com.carpark.android.ui.components.SearchResultsSheet
 import com.carpark.android.ui.components.SavedBottomSheet
 import com.carpark.android.ui.detail.DetailScreen
@@ -37,7 +41,6 @@ import com.carpark.android.ui.mypage.MyPageScreen
 import com.carpark.android.ui.theme.isAppInDarkTheme
 import com.carpark.android.viewmodel.ParkingViewModel
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MainScreen(
     viewModel: ParkingViewModel,
@@ -51,9 +54,15 @@ fun MainScreen(
 
     val isDarkMode = isAppInDarkTheme()
     val hideHeader = state.detailLot != null || state.savedExpanded || state.nearbyExpanded
-    val isKeyboardVisible = WindowInsets.isImeVisible
+    val isKeyboardVisible = rememberKeyboardVisible()
     var isSearchFocused by remember { mutableStateOf(false) }
-    val shouldHideBottomNav = isKeyboardVisible && isSearchFocused
+    val shouldHideBottomNav = state.searchPageOpen || (isKeyboardVisible && isSearchFocused)
+
+    LaunchedEffect(isKeyboardVisible) {
+        if (!isKeyboardVisible) {
+            isSearchFocused = false
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -91,6 +100,7 @@ fun MainScreen(
                         parkingLots = state.parkingLots,
                         selectedLot = state.selectedLot,
                         dataMode = state.mode,
+                        isNearbyMode = state.isNearbyMode,
                         panTo = state.panTo,
                         userLocation = state.userLocation,
                         userBearing = state.userBearing,
@@ -111,8 +121,10 @@ fun MainScreen(
                             HeaderBar(
                                 searchQuery = state.searchQuery,
                                 onSearchChange = viewModel::updateSearchQuery,
-                                onSearch = viewModel::searchPlaces,
-                                onSearchFocusChange = { isSearchFocused = it },
+                                onSearchClick = {
+                                    isSearchFocused = true
+                                    viewModel.openSearchPage()
+                                },
                                 centerRegion = state.centerRegion,
                                 dataMode = state.mode,
                                 onModeChange = viewModel::changeMode,
@@ -228,6 +240,23 @@ fun MainScreen(
         }
 
         if (state.activeTab != TabId.MY) {
+            SearchOverlay(
+                open = state.searchPageOpen,
+                searchQuery = state.searchQuery,
+                recentSearches = state.recentSearches,
+                onQueryChange = viewModel::updateSearchQuery,
+                onSearch = viewModel::searchPlaces,
+                onClose = {
+                    isSearchFocused = false
+                    viewModel.closeSearchPage()
+                },
+                onRecentSearchClick = viewModel::searchFromHistory,
+                onDeleteRecentSearch = viewModel::deleteRecentSearch,
+                onDeleteAll = viewModel::clearAllRecentSearches,
+            )
+        }
+
+        if (state.activeTab != TabId.MY) {
             DetailScreen(
                 lot = state.detailLot,
                 open = state.detailLot != null,
@@ -239,4 +268,27 @@ fun MainScreen(
             )
         }
     }
+}
+
+@Composable
+private fun rememberKeyboardVisible(): Boolean {
+    val view = LocalView.current
+    var isKeyboardVisible by remember { mutableStateOf(false) }
+
+    DisposableEffect(view) {
+        val visibleFrame = Rect()
+        val listener = android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            view.getWindowVisibleDisplayFrame(visibleFrame)
+            val screenHeight = view.rootView.height
+            val keypadHeight = screenHeight - visibleFrame.bottom
+            isKeyboardVisible = keypadHeight > screenHeight * 0.15f
+        }
+
+        view.viewTreeObserver.addOnGlobalLayoutListener(listener)
+        onDispose {
+            view.viewTreeObserver.removeOnGlobalLayoutListener(listener)
+        }
+    }
+
+    return isKeyboardVisible
 }

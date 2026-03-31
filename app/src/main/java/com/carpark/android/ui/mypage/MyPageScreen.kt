@@ -21,12 +21,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
@@ -54,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -66,12 +67,9 @@ import com.carpark.android.data.local.AuthPreferences
 import com.carpark.android.data.model.MyPageRoute
 import com.carpark.android.data.model.NavigationProvider
 import com.carpark.android.data.model.ThemeMode
-import com.carpark.android.ui.theme.Gray100
 import com.carpark.android.ui.theme.Gray400
-import com.carpark.android.ui.theme.Gray50
-import com.carpark.android.ui.theme.Gray700
 import com.carpark.android.ui.theme.Gray900
-import com.carpark.android.ui.theme.Primary
+import com.carpark.android.ui.theme.isAppInDarkTheme
 import kotlinx.coroutines.launch
 
 @Composable
@@ -212,7 +210,7 @@ private fun MyPageHome(
                     MenuItemData(
                         title = "문의하기",
                         subtitle = "버그나 이용 중 불편한 점을 전달해 주세요",
-                        icon = Icons.Default.Help,
+                        icon = Icons.AutoMirrored.Filled.Help,
                         onClick = { onNavigate(MyPageRoute.CONTACT) },
                     ),
                     MenuItemData(
@@ -410,7 +408,7 @@ private fun SettingsPage(
                     )
 
                     if (index != ThemeMode.entries.lastIndex) {
-                        HorizontalDivider(color = Gray100)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                     }
                 }
             }
@@ -452,7 +450,7 @@ private fun SettingsPage(
                     )
 
                     if (index != NavigationProvider.entries.lastIndex) {
-                        HorizontalDivider(color = Gray100)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                     }
                 }
             }
@@ -466,9 +464,10 @@ private fun TermsPage(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val backgroundColor = MaterialTheme.colorScheme.background
     Scaffold(
         modifier = modifier,
-        containerColor = Gray50,
+        containerColor = backgroundColor,
         topBar = {
             PageTopBar(title = "이용 약관", onBack = onBack)
         },
@@ -476,7 +475,7 @@ private fun TermsPage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Gray50)
+                .background(backgroundColor)
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
                 .padding(20.dp),
@@ -563,7 +562,7 @@ private fun NoticeCard(
             Text(
                 text = body,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Gray700,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 22.sp,
             )
         }
@@ -590,7 +589,7 @@ private fun InfoCard(
             Text(
                 text = body,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Gray700,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 22.sp,
             )
         }
@@ -602,7 +601,7 @@ private fun TermsText(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,
-        color = Gray700,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         lineHeight = 22.sp,
     )
     Spacer(Modifier.height(10.dp))
@@ -613,6 +612,17 @@ private fun ProfileCard(
     nickname: String,
     loginType: String,
 ) {
+    val avatarBackground = MaterialTheme.colorScheme.surfaceVariant
+    val mutedText = MaterialTheme.colorScheme.onSurfaceVariant
+    val loginIconTint = if (loginType.uppercase() == "KAKAO") {
+        if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
+            MaterialTheme.colorScheme.onSurface
+        } else {
+            Color(0xD9000000)
+        }
+    } else {
+        Color.Unspecified
+    }
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -627,13 +637,13 @@ private fun ProfileCard(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(Gray100),
+                    .background(avatarBackground),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.Person,
                     contentDescription = null,
-                    tint = Gray700,
+                    tint = mutedText,
                     modifier = Modifier.size(28.dp),
                 )
             }
@@ -650,7 +660,7 @@ private fun ProfileCard(
                 Spacer(Modifier.height(6.dp))
                 Surface(
                     shape = RoundedCornerShape(999.dp),
-                    color = Gray50,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -659,14 +669,14 @@ private fun ProfileCard(
                         Icon(
                             painter = painterResource(loginIconRes(loginType)),
                             contentDescription = loginType,
-                            tint = if (loginType.uppercase() == "KAKAO") Color(0xD9000000) else Color.Unspecified,
+                            tint = loginIconTint,
                             modifier = Modifier.size(16.dp),
                         )
                         Spacer(Modifier.size(6.dp))
                         Text(
                             text = loginLabel(loginType),
                             style = MaterialTheme.typography.labelMedium,
-                            color = Gray700,
+                            color = mutedText,
                         )
                     }
                 }
@@ -695,7 +705,7 @@ private fun MenuSection(
         items.forEachIndexed { index, item ->
             MenuRow(item = item)
             if (index != items.lastIndex) {
-                HorizontalDivider(color = Gray100)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
             }
         }
     }
@@ -703,6 +713,10 @@ private fun MenuSection(
 
 @Composable
 private fun MenuRow(item: MenuItemData) {
+    val isDark = isAppInDarkTheme()
+    val iconBackground = MaterialTheme.colorScheme.surfaceVariant
+    val iconTint = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+    val secondaryText = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -714,13 +728,13 @@ private fun MenuRow(item: MenuItemData) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Gray50),
+                .background(iconBackground),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = item.icon,
                 contentDescription = item.title,
-                tint = Primary,
+                tint = iconTint,
             )
         }
 
@@ -737,14 +751,14 @@ private fun MenuRow(item: MenuItemData) {
             Text(
                 text = item.subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = Gray400,
+                color = secondaryText,
             )
         }
 
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Gray400,
+            tint = secondaryText,
         )
     }
 }

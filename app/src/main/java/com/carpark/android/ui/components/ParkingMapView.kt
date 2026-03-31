@@ -112,9 +112,10 @@ private fun createStaticMarkerBitmap(
     context: Context,
     isDarkMode: Boolean,
     isSelected: Boolean = false,
+    scale: Float = 1f,
 ): Bitmap {
     val density = context.resources.displayMetrics.density
-    val size = (22 * density).toInt()
+    val size = ((22 * density) * scale).toInt().coerceAtLeast(1)
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 
@@ -163,30 +164,32 @@ private fun createMarkerBitmap(
     color: Int,
     text: String?,
     isSelected: Boolean = false,
+    scale: Float = 1f,
 ): Bitmap {
     val density = context.resources.displayMetrics.density
-    val w = (if (text != null) 48 else 36).times(density).toInt()
-    val h = (52 * density).toInt()
+    val scaledDensity = density * scale
+    val w = (if (text != null) 48 else 36).times(scaledDensity).toInt().coerceAtLeast(1)
+    val h = (52 * scaledDensity).toInt().coerceAtLeast(1)
     val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 
-    val headRadius = (if (text != null) 20 else 15) * density
+    val headRadius = (if (text != null) 20 else 15) * scaledDensity
     val cx = w / 2f
-    val cy = headRadius + 2 * density
+    val cy = headRadius + 2 * scaledDensity
 
     // Shadow
     val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         this.color = android.graphics.Color.argb(40, 0, 0, 0)
-        maskFilter = BlurMaskFilter(4 * density, BlurMaskFilter.Blur.NORMAL)
+        maskFilter = BlurMaskFilter(4 * scaledDensity, BlurMaskFilter.Blur.NORMAL)
     }
-    canvas.drawCircle(cx, cy + 2 * density, headRadius, shadowPaint)
+    canvas.drawCircle(cx, cy + 2 * scaledDensity, headRadius, shadowPaint)
 
     // Tail
     val tailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
     val tailPath = Path().apply {
-        moveTo(cx - 6 * density, cy + headRadius * 0.5f)
-        lineTo(cx, cy + headRadius + 10 * density)
-        lineTo(cx + 6 * density, cy + headRadius * 0.5f)
+        moveTo(cx - 6 * scaledDensity, cy + headRadius * 0.5f)
+        lineTo(cx, cy + headRadius + 10 * scaledDensity)
+        lineTo(cx + 6 * scaledDensity, cy + headRadius * 0.5f)
         close()
     }
     canvas.drawPath(tailPath, tailPaint)
@@ -200,36 +203,68 @@ private fun createMarkerBitmap(
         val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             this.color = android.graphics.Color.WHITE
-            strokeWidth = 3 * density
+            strokeWidth = 3 * scaledDensity
         }
-        canvas.drawCircle(cx, cy, headRadius - 1.5f * density, borderPaint)
+        canvas.drawCircle(cx, cy, headRadius - 1.5f * scaledDensity, borderPaint)
     }
 
     // P text
     val pPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         this.color = android.graphics.Color.WHITE
-        textSize = (if (text != null) 13 else 14) * density
+        textSize = (if (text != null) 13 else 14) * scaledDensity
         typeface = Typeface.DEFAULT_BOLD
         textAlign = Paint.Align.CENTER
     }
 
     if (text != null) {
         // P on left, count on right
-        pPaint.textSize = 12 * density
-        val pX = cx - 7 * density
-        canvas.drawText("P", pX, cy + 5 * density, pPaint)
+        pPaint.textSize = 12 * scaledDensity
+        val pX = cx - 7 * scaledDensity
+        canvas.drawText("P", pX, cy + 5 * scaledDensity, pPaint)
 
         val countPaint = Paint(pPaint).apply {
-            textSize = 11 * density
+            textSize = 11 * scaledDensity
             typeface = Typeface.DEFAULT_BOLD
         }
-        val countX = cx + 8 * density
-        canvas.drawText(text, countX, cy + 5 * density, countPaint)
+        val countX = cx + 8 * scaledDensity
+        canvas.drawText(text, countX, cy + 5 * scaledDensity, countPaint)
     } else {
-        canvas.drawText("P", cx, cy + 5 * density, pPaint)
+        canvas.drawText("P", cx, cy + 5 * scaledDensity, pPaint)
     }
 
     return bitmap
+}
+
+private fun createLotLabelStyles(
+    context: Context,
+    lot: ParkingLot,
+    dataMode: DataMode,
+    isDarkMode: Boolean,
+    isSelected: Boolean,
+    scale: Float = 1f,
+): LabelStyles {
+    val isRealtime = dataMode == DataMode.REALTIME
+    val isNotLinked = dataMode == DataMode.NOT_LINKED
+    val bitmap = if (isNotLinked) {
+        createStaticMarkerBitmap(
+            context = context,
+            isDarkMode = isDarkMode,
+            isSelected = isSelected,
+            scale = scale,
+        )
+    } else {
+        createMarkerBitmap(
+            context = context,
+            color = getMarkerColor(lot, isRealtime),
+            text = if (isRealtime) "${lot.availableCount}" else null,
+            isSelected = isSelected,
+            scale = scale,
+        )
+    }
+    val anchor = if (isNotLinked) 0.5f else 1.0f
+    return LabelStyles.from(
+        LabelStyle.from(bitmap).setAnchorPoint(0.5f, anchor)
+    )
 }
 
 private fun createSearchMarkerBitmap(context: Context): Bitmap {
@@ -258,6 +293,7 @@ fun ParkingMapView(
     parkingLots: List<ParkingLot>,
     selectedLot: ParkingLot?,
     dataMode: DataMode,
+    isNearbyMode: Boolean,
     panTo: LatLngPoint?,
     userLocation: LatLngPoint?,
     userBearing: Float?,
@@ -315,14 +351,8 @@ fun ParkingMapView(
                 LabelLayerOptions.from("parking_markers").setZOrder(1)
             ) ?: return@LaunchedEffect
 
-            val isRealtime = dataMode == DataMode.REALTIME
-            val isNotLinked = dataMode == DataMode.NOT_LINKED
             val existingLabels = lotLabelsRef.value.toMutableMap()
             val newLotIds = parkingLots.map { it.id }.toSet()
-
-            // Cache static marker bitmaps (same for all NOT_LINKED markers)
-            val staticNormal = if (isNotLinked) createStaticMarkerBitmap(ctx, isDarkMode, false) else null
-            val staticSelected = if (isNotLinked) createStaticMarkerBitmap(ctx, isDarkMode, true) else null
 
             // Remove labels for lots no longer visible
             existingLabels.keys.filter { it !in newLotIds }.forEach { id ->
@@ -337,24 +367,17 @@ fun ParkingMapView(
                 if (lat == 0.0 || lng == 0.0) continue
 
                 val isSelected = selectedLot?.id == lot.id
-                val bitmap = if (isNotLinked) {
-                    if (isSelected) staticSelected!! else staticNormal!!
-                } else {
-                    val color = getMarkerColor(lot, isRealtime)
-                    val countText = if (isRealtime) "${lot.availableCount}" else null
-                    createMarkerBitmap(ctx, color, countText, isSelected)
-                }
-
-                val anchor = if (isNotLinked) 0.5f else 1.0f
+                val styles = createLotLabelStyles(
+                    context = ctx,
+                    lot = lot,
+                    dataMode = dataMode,
+                    isDarkMode = isDarkMode,
+                    isSelected = isSelected,
+                )
                 val existing = existingLabels[lot.id]
                 if (existing != null) {
-                    // Update existing label style
-                    val style = LabelStyle.from(bitmap).setAnchorPoint(0.5f, anchor)
-                    existing.changeStyles(LabelStyles.from(style))
+                    existing.changeStyles(styles)
                 } else {
-                    // Create new label
-                    val style = LabelStyle.from(bitmap).setAnchorPoint(0.5f, anchor)
-                    val styles = LabelStyles.from(style)
                     val options = LabelOptions.from("lot_${lot.id}", LatLng.from(lat, lng))
                         .setStyles(styles)
                         .setClickable(true)
@@ -368,6 +391,35 @@ fun ParkingMapView(
             lotLabelsRef.value = existingLabels
         } catch (e: Exception) {
             Log.e(TAG, "Error updating markers", e)
+        }
+    }
+
+    LaunchedEffect(kakaoMap, selectedLot?.id, dataMode, isDarkMode) {
+        val map = kakaoMap ?: return@LaunchedEffect
+        val ctx = context.value ?: return@LaunchedEffect
+        val lot = selectedLot ?: return@LaunchedEffect
+        val label = lotLabelsRef.value[lot.id] ?: return@LaunchedEffect
+        if (parkingLots.none { it.id == lot.id }) return@LaunchedEffect
+
+        val bounceSequence = listOf(1f, 1.2f, 0.9f, 1.1f, 0.95f, 1f)
+        val frameDelayMillis = 65L
+
+        try {
+            for (scale in bounceSequence) {
+                label.changeStyles(
+                    createLotLabelStyles(
+                        context = ctx,
+                        lot = lot,
+                        dataMode = dataMode,
+                        isDarkMode = isDarkMode,
+                        isSelected = true,
+                        scale = scale,
+                    )
+                )
+                kotlinx.coroutines.delay(frameDelayMillis)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error animating selected marker bounce", e)
         }
     }
 

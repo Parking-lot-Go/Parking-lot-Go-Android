@@ -22,28 +22,20 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.carpark.android.R
@@ -72,14 +64,12 @@ import com.carpark.android.ui.theme.isAppInDarkTheme
 fun HeaderBar(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
-    onSearch: (String) -> Unit,
-    onSearchFocusChange: (Boolean) -> Unit,
+    onSearchClick: () -> Unit,
     centerRegion: String,
     dataMode: DataMode,
     onModeChange: (DataMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val focusManager = LocalFocusManager.current
     val isDark = isAppInDarkTheme()
     val isRealtime = dataMode == DataMode.REALTIME
 
@@ -102,6 +92,7 @@ fun HeaderBar(
                 .height(48.dp)
                 .shadow(8.dp, RoundedCornerShape(24.dp))
                 .background(inputBg, RoundedCornerShape(24.dp))
+                .clickable(onClick = onSearchClick)
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -112,37 +103,12 @@ fun HeaderBar(
                 modifier = Modifier.size(28.dp),
             )
             Spacer(Modifier.width(12.dp))
-            BasicTextField(
-                value = searchQuery,
-                onValueChange = onSearchChange,
-                modifier = Modifier
-                    .weight(1f)
-                    .onFocusChanged { onSearchFocusChange(it.isFocused) },
-                singleLine = true,
-                textStyle = LocalTextStyle.current.copy(
-                    fontSize = 15.sp,
-                    color = inputText,
-                ),
-                cursorBrush = SolidColor(active),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
-                    onSearch = {
-                        if (searchQuery.isNotBlank()) {
-                            focusManager.clearFocus()
-                            onSearch(searchQuery.trim())
-                        }
-                    },
-                ),
-                decorationBox = { inner ->
-                    if (searchQuery.isEmpty()) {
-                        Text(
-                            text = "주차장 검색",
-                            color = hint,
-                            fontSize = 15.sp,
-                        )
-                    }
-                    inner()
-                },
+            Text(
+                text = searchQuery.ifEmpty { "주차장 검색" },
+                modifier = Modifier.weight(1f),
+                fontSize = 15.sp,
+                color = if (searchQuery.isEmpty()) hint else inputText,
+                maxLines = 1,
             )
             if (searchQuery.isNotEmpty()) {
                 Icon(
