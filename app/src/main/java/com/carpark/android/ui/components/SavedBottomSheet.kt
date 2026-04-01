@@ -61,6 +61,7 @@ import com.carpark.android.ui.theme.Gray300
 import com.carpark.android.ui.theme.Gray400
 import com.carpark.android.ui.theme.Gray500
 import com.carpark.android.ui.theme.Gray600
+import com.carpark.android.ui.theme.Gray700
 import com.carpark.android.ui.theme.Gray900
 import com.carpark.android.ui.theme.Primary
 import com.carpark.android.viewmodel.LatLngPoint
@@ -76,6 +77,8 @@ private enum class SavedSortOption(val label: String) {
     REGISTERED("등록순"),
     NAME("이름순"),
 }
+
+private fun safeText(value: String?): String = value.orEmpty()
 
 @Composable
 fun SavedBottomSheet(
@@ -97,12 +100,13 @@ fun SavedBottomSheet(
     val scope = rememberCoroutineScope()
     var sortOption by remember(open) { mutableStateOf(SavedSortOption.REGISTERED) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
+    var showDistanceInfo by remember { mutableStateOf(false) }
     var editMode by remember(open) { mutableStateOf(false) }
 
     val displayedLots = remember(lots, sortOption, userLocation) {
         when (sortOption) {
             SavedSortOption.REGISTERED -> lots
-            SavedSortOption.NAME -> lots.sortedBy { it.parkingName.lowercase() }
+            SavedSortOption.NAME -> lots.sortedBy { safeText(it.parkingName).lowercase() }
         }
     }
 
@@ -270,6 +274,12 @@ fun SavedBottomSheet(
                                 }
                             }
                         }
+
+                        InfoTooltipButton(
+                            visible = showDistanceInfo,
+                            onToggle = { showDistanceInfo = !showDistanceInfo },
+                            text = "직선거리 기준이며 실제 이동 거리와 다를 수 있어요",
+                        )
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
@@ -391,7 +401,9 @@ private fun SavedLotRow(
     onRemove: () -> Unit,
 ) {
     val distanceLabel = remember(lot, userLocation) { formatDistanceLabel(lot, userLocation) }
-    val addressLine = lot.address.ifBlank { lot.district.ifBlank { "주소 정보 없음" } }
+    val parkingName = safeText(lot.parkingName).ifBlank { "이름 없는 주차장" }
+    val addressLine = safeText(lot.address).ifBlank { safeText(lot.district).ifBlank { "주소 정보 없음" } }
+    val parkingTypeName = safeText(lot.parkingTypeName)
 
     Row(
         modifier = Modifier
@@ -427,7 +439,7 @@ private fun SavedLotRow(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = lot.parkingName.ifBlank { "이름 없는 주차장" },
+                    text = parkingName,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -454,9 +466,9 @@ private fun SavedLotRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                if (lot.parkingTypeName.isNotBlank()) {
+                if (parkingTypeName.isNotBlank()) {
                     Text(
-                        text = "· ${lot.parkingTypeName}",
+                        text = "· $parkingTypeName",
                         fontSize = 12.sp,
                         color = Gray400,
                         maxLines = 1,

@@ -1,7 +1,6 @@
 package com.carpark.android.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,27 +16,25 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -55,8 +52,8 @@ import com.carpark.android.ui.theme.BarInputBgDark
 import com.carpark.android.ui.theme.BarInputBgLight
 import com.carpark.android.ui.theme.BarInputTextDark
 import com.carpark.android.ui.theme.BarInputTextLight
-import com.carpark.android.ui.theme.Gray200
-import com.carpark.android.ui.theme.Gray50
+import com.carpark.android.ui.theme.Gray100
+import com.carpark.android.ui.theme.Gray400
 import com.carpark.android.ui.theme.Gray500
 import com.carpark.android.ui.theme.Gray900
 import com.carpark.android.ui.theme.isAppInDarkTheme
@@ -85,13 +82,9 @@ fun SearchOverlay(
     val textColor = if (isDark) BarInputTextDark else BarInputTextLight
     val hintColor = if (isDark) BarHintDark else BarHintLight
     val activeColor = if (isDark) BarActiveDark else BarActiveLight
-    val itemBackground = if (isDark) Gray900.copy(alpha = 0.6f) else Color.White
-    val itemBorder = if (isDark) Color.White.copy(alpha = 0.08f) else Gray200
 
     LaunchedEffect(open) {
-        if (open) {
-            focusRequester.requestFocus()
-        }
+        if (open) focusRequester.requestFocus()
     }
 
     Surface(
@@ -101,19 +94,19 @@ fun SearchOverlay(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .statusBarsPadding(),
         ) {
+            // 검색바
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
                     .height(48.dp)
-                    .shadow(8.dp, RoundedCornerShape(24.dp))
                     .background(cardBackground, RoundedCornerShape(24.dp))
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                androidx.compose.material3.Icon(
+                Icon(
                     imageVector = Icons.Rounded.ArrowBack,
                     contentDescription = "back",
                     tint = activeColor,
@@ -150,7 +143,7 @@ fun SearchOverlay(
                     decorationBox = { innerTextField ->
                         if (searchQuery.isEmpty()) {
                             Text(
-                                text = "주차장 검색",
+                                text = "장소·주소 검색",
                                 color = hintColor,
                                 fontSize = 15.sp,
                             )
@@ -159,147 +152,105 @@ fun SearchOverlay(
                     },
                 )
                 if (searchQuery.isNotEmpty()) {
-                    androidx.compose.material3.Icon(
+                    Icon(
                         imageVector = Icons.Rounded.Close,
-                        contentDescription = "clear-search-query",
+                        contentDescription = "clear",
                         tint = hintColor,
-                        modifier = Modifier.clickable { onQueryChange("") },
-                    )
-                } else {
-                    androidx.compose.material3.Icon(
-                        imageVector = Icons.Rounded.Search,
-                        contentDescription = null,
-                        tint = hintColor,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clickable { onQueryChange("") },
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            HorizontalDivider(color = if (isDark) Color.White.copy(alpha = 0.06f) else Gray100)
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                if (recentSearches.isNotEmpty()) {
-                    TextButton(onClick = onDeleteAll) {
-                        Text("전체 삭제")
-                    }
+            // 최근 검색 헤더
+            if (recentSearches.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "최근",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = activeColor,
+                    )
+                    Text(
+                        text = "전체 삭제",
+                        fontSize = 13.sp,
+                        color = Gray500,
+                        modifier = Modifier.clickable(onClick = onDeleteAll),
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
+            // 검색 기록 목록
             if (recentSearches.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 48.dp),
-                    contentAlignment = Alignment.Center,
+                        .weight(1f)
+                        .padding(top = 60.dp),
+                    contentAlignment = Alignment.TopCenter,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .background(cardBackground, CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            androidx.compose.material3.Icon(
-                                imageVector = Icons.Outlined.History,
-                                contentDescription = null,
-                                tint = hintColor,
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = "최근 검색어가 아직 없어요",
-                            color = activeColor,
-                            fontWeight = FontWeight.SemiBold,
+                        Icon(
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = null,
+                            tint = Gray400,
+                            modifier = Modifier.size(32.dp),
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "검색하면 최근 기록이 여기에 쌓여요",
-                            color = hintColor,
-                            fontSize = 13.sp,
+                            text = "최근 검색 기록이 없습니다",
+                            fontSize = 14.sp,
+                            color = Gray500,
                         )
                     }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     items(recentSearches, key = { it }) { query ->
-                        SearchHistoryRow(
-                            query = query,
-                            backgroundColor = itemBackground,
-                            borderColor = itemBorder,
-                            textColor = activeColor,
-                            hintColor = hintColor,
-                            onClick = {
-                                focusManager.clearFocus()
-                                onRecentSearchClick(query)
-                            },
-                            onDelete = { onDeleteRecentSearch(query) },
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    focusManager.clearFocus()
+                                    onRecentSearchClick(query)
+                                }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null,
+                                tint = Gray400,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Text(
+                                text = query,
+                                modifier = Modifier.weight(1f),
+                                color = activeColor,
+                                fontSize = 15.sp,
+                            )
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = "delete",
+                                tint = Gray400,
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clickable { onDeleteRecentSearch(query) },
+                            )
+                        }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SearchHistoryRow(
-    query: String,
-    backgroundColor: Color,
-    borderColor: Color,
-    textColor: Color,
-    hintColor: Color,
-    onClick: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(backgroundColor, RoundedCornerShape(18.dp))
-            .border(1.dp, borderColor, RoundedCornerShape(18.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .background(Gray50, RoundedCornerShape(12.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            androidx.compose.material3.Icon(
-                imageVector = Icons.Outlined.History,
-                contentDescription = null,
-                tint = Gray500,
-            )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Text(
-            text = query,
-            modifier = Modifier
-                .weight(1f)
-                .clickable(onClick = onClick),
-            color = textColor,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 15.sp,
-        )
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        androidx.compose.material3.Icon(
-            imageVector = Icons.Default.Close,
-            contentDescription = "delete-recent-search",
-            tint = hintColor,
-            modifier = Modifier
-                .size(20.dp)
-                .clickable(onClick = onDelete),
-        )
     }
 }

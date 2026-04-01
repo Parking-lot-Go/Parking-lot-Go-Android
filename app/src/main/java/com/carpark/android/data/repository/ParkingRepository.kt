@@ -35,8 +35,8 @@ class ParkingRepository {
                     id = s.id,
                     parkingName = s.parkingName ?: "",
                     address = s.address ?: "",
-                    lat = s.lat.toString(),
-                    lng = s.lng.toString(),
+                    lat = s.lat,
+                    lng = s.lng,
                     totalCapacity = s.totalCapacity,
                     availableCount = s.availableCount,
                     feeType = s.feeType ?: "",
@@ -84,7 +84,11 @@ class ParkingRepository {
     }
 
     suspend fun fetchParkingDetail(id: Int): ParkingLot {
-        return api.fetchParkingDetail(id)
+        val response = api.fetchParkingDetail(id)
+        if (!response.success || response.data == null) {
+            throw IllegalStateException(response.errorMessageOrDefault("주차장 상세 정보를 불러오지 못했습니다"))
+        }
+        return response.data
     }
 
     suspend fun searchPlaces(
@@ -114,6 +118,41 @@ class ParkingRepository {
             throw IllegalStateException(response.message.ifBlank { "즐겨찾기 변경 실패" })
         }
         return response.data ?: false
+    }
+
+    suspend fun createSupportTicket(request: CreateSupportTicketRequest): SupportTicket {
+        val response = api.createSupportTicket(request)
+        if (!response.success || response.data == null) {
+            throw IllegalStateException(response.errorMessageOrDefault("문의를 접수하지 못했습니다"))
+        }
+        return response.data
+    }
+
+    suspend fun fetchSupportTickets(
+        type: SupportTicketType? = null,
+        status: SupportTicketStatus? = null,
+        mine: Boolean? = null,
+    ): List<SupportTicket> {
+        val response = api.fetchSupportTickets(
+            type = type,
+            status = status,
+            mine = mine,
+        )
+        if (!response.success || response.data == null) {
+            throw IllegalStateException(response.errorMessageOrDefault("문의 목록을 불러오지 못했습니다"))
+        }
+        return response.data
+    }
+
+    suspend fun updateSupportTicket(
+        id: Long,
+        request: UpdateSupportTicketRequest,
+    ): SupportTicket {
+        val response = api.updateSupportTicket(id = id, request = request)
+        if (!response.success || response.data == null) {
+            throw IllegalStateException(response.errorMessageOrDefault("문의 수정에 실패했습니다"))
+        }
+        return response.data
     }
 
     companion object {

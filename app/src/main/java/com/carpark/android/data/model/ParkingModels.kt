@@ -11,7 +11,7 @@ enum class TabId {
 }
 
 enum class MyPageRoute {
-    ROOT, NOTICE, CONTACT, REQUEST, SETTINGS, NOTIFICATIONS, TERMS
+    ROOT, NOTICE, TICKETS, CONTACT, REQUEST, SETTINGS, NOTIFICATIONS, TERMS
 }
 
 enum class NavigationProvider {
@@ -45,12 +45,12 @@ data class ParkingLot(
     val address: String = "",
     val district: String = "",
     val parkingTypeName: String = "",
-    val operationType: String = "",
-    val phone: String = "",
+    val operationType: String? = null,
+    val phone: String? = null,
     val totalCapacity: Int = 0,
     val currentCount: Int = 0,
     val availableCount: Int = 0,
-    val updatedAt: String = "",
+    val updatedAt: String? = null,
     val feeType: String = "",
     val basicFee: Int = 0,
     val basicTime: Int = 0,
@@ -58,17 +58,17 @@ data class ParkingLot(
     val additionalTime: Int = 0,
     val monthlyFee: Int = 0,
     val dayMaxFee: Int = 0,
-    val lat: String = "0",
-    val lng: String = "0",
-    val weekdayStart: String = "",
-    val weekdayEnd: String = "",
-    val weekendStart: String = "",
-    val weekendEnd: String = "",
-    val holidayStart: String = "",
-    val holidayEnd: String = "",
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+    val weekdayStart: String? = null,
+    val weekdayEnd: String? = null,
+    val weekendStart: String? = null,
+    val weekendEnd: String? = null,
+    val holidayStart: String? = null,
+    val holidayEnd: String? = null,
 ) {
-    val latDouble: Double get() = lat.toDoubleOrNull() ?: 0.0
-    val lngDouble: Double get() = lng.toDoubleOrNull() ?: 0.0
+    val latDouble: Double get() = lat
+    val lngDouble: Double get() = lng
 }
 
 data class NearbyParkingLot(

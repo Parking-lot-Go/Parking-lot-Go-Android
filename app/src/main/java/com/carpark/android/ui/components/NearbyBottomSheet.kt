@@ -31,6 +31,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,24 +53,25 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
-import androidx.compose.material3.MaterialTheme
 import com.carpark.android.data.model.NearbyParkingLot
 import com.carpark.android.ui.theme.Gray100
 import com.carpark.android.ui.theme.Gray300
 import com.carpark.android.ui.theme.Gray400
 import com.carpark.android.ui.theme.Gray500
 import com.carpark.android.ui.theme.Gray600
+import com.carpark.android.ui.theme.Gray700
 import com.carpark.android.ui.theme.Gray900
 import com.carpark.android.ui.theme.Primary
-import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
+import kotlinx.coroutines.launch
 
-private fun formatDistance(m: Int): String {
-    return if (m >= 1000) "%.1fkm".format(m / 1000.0) else "${m}m"
+private fun formatDistance(meters: Int): String {
+    return if (meters >= 1000) "%.1fkm".format(meters / 1000.0) else "${meters}m"
 }
 
 private val numberFmt = NumberFormat.getNumberInstance(Locale.KOREA)
+private fun safeText(value: String?): String = value.orEmpty()
 
 @Composable
 fun NearbyBottomSheet(
@@ -85,11 +87,11 @@ fun NearbyBottomSheet(
     modifier: Modifier = Modifier,
 ) {
     var sortBy by remember { mutableStateOf("distance") }
-    var showDistanceInfo by remember { mutableStateOf(false) }
+    var showSortInfo by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
 
-    val sorted = remember(lots, sortBy) {
+    val sortedLots = remember(lots, sortBy) {
         if (sortBy == "distance") lots.sortedBy { it.distance }
         else lots.sortedBy { it.lot.basicFee }
     }
@@ -101,7 +103,7 @@ fun NearbyBottomSheet(
         modifier = modifier,
     ) {
         BoxWithConstraints {
-            val parentHeightPx = this@BoxWithConstraints.maxHeight.value * LocalDensity.current.density
+            val parentHeightPx = maxHeight.value * density.density
             val collapsedPx = parentHeightPx * 0.55f
             val expandedPx = parentHeightPx * 0.92f
             val closePx = collapsedPx * 0.5f
@@ -109,8 +111,8 @@ fun NearbyBottomSheet(
 
             LaunchedEffect(expanded) {
                 heightPx.animateTo(
-                    if (expanded) expandedPx else collapsedPx,
-                    tween(300),
+                    targetValue = if (expanded) expandedPx else collapsedPx,
+                    animationSpec = tween(300),
                 )
             }
 
@@ -137,18 +139,16 @@ fun NearbyBottomSheet(
                                 onDragEnd = {
                                     scope.launch {
                                         val current = heightPx.value
-                                        val mid = (collapsedPx + expandedPx) / 2
+                                        val midpoint = (collapsedPx + expandedPx) / 2f
                                         when {
                                             current < closePx -> {
                                                 heightPx.animateTo(0f, tween(200))
                                                 onClose()
                                             }
-
-                                            current > mid -> {
+                                            current > midpoint -> {
                                                 onExpandChange(true)
                                                 heightPx.animateTo(expandedPx, tween(200))
                                             }
-
                                             else -> {
                                                 onExpandChange(false)
                                                 heightPx.animateTo(collapsedPx, tween(200))
@@ -169,10 +169,10 @@ fun NearbyBottomSheet(
                     )
                 }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
@@ -184,7 +184,7 @@ fun NearbyBottomSheet(
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = onReSearch) {
-                            Text("현 위치 재검색", fontSize = 12.sp)
+                            Text("이 위치에서 재검색", fontSize = 12.sp)
                         }
                         IconButton(onClick = onClose) {
                             Icon(
@@ -208,42 +208,20 @@ fun NearbyBottomSheet(
                     ) {
                         SortChip("거리순", sortBy == "distance") { sortBy = "distance" }
                         SortChip("요금순", sortBy == "fee") { sortBy = "fee" }
-                        Box {
-                            IconButton(
-                                onClick = { showDistanceInfo = !showDistanceInfo },
-                                modifier = Modifier.size(28.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.HelpOutline,
-                                    contentDescription = "distance-info",
-                                    tint = Gray500,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
-                            if (showDistanceInfo) {
-                                Popup(
-                                    alignment = Alignment.BottomCenter,
-                                    offset = IntOffset(0, with(LocalDensity.current) { (-32).dp.roundToPx() }),
-                                    onDismissRequest = { showDistanceInfo = false },
-                                ) {
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Gray900,
-                                        shadowElevation = 4.dp,
-                                    ) {
-                                        Text(
-                                            text = if (sortBy == "fee") "표시된 요금은 실제 비용과 다를 수 있어요"
-                                            else "직선거리 기준으로 실제와 다를 수 있어요",
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                            fontSize = 12.sp,
-                                            color = Color.White,
-                                        )
-                                    }
-                                }
-                            }
-                        }
+
+                        InfoTooltipButton(
+                            visible = showSortInfo,
+                            onToggle = { showSortInfo = !showSortInfo },
+                            text = if (sortBy == "fee") {
+                                "표시된 요금은 운영 정책에 따라 실제와 다를 수 있어요"
+                            } else {
+                                "직선거리 기준이며 실제 이동 거리와 다를 수 있어요"
+                            },
+                        )
                     }
+
                     Spacer(modifier = Modifier.weight(1f))
+
                     if (regionLabel.isNotBlank()) {
                         Text(
                             text = regionLabel,
@@ -268,7 +246,7 @@ fun NearbyBottomSheet(
                                 modifier = Modifier.size(24.dp),
                                 strokeWidth = 2.dp,
                             )
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "주변 주차장을 찾는 중입니다.",
                                 fontSize = 13.sp,
@@ -281,7 +259,7 @@ fun NearbyBottomSheet(
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(bottom = 16.dp),
                     ) {
-                        itemsIndexed(sorted, key = { _, it -> it.lot.id }) { index, nearby ->
+                        itemsIndexed(sortedLots, key = { _, item -> item.lot.id }) { index, nearby ->
                             NearbyItem(
                                 rank = index + 1,
                                 nearby = nearby,
@@ -293,7 +271,6 @@ fun NearbyBottomSheet(
             }
         }
     }
-
 }
 
 @Composable
@@ -303,6 +280,7 @@ private fun NearbyItem(
     onClick: () -> Unit,
 ) {
     val lot = nearby.lot
+    val parkingName = safeText(lot.parkingName).ifBlank { "이름 없는 주차장" }
 
     Row(
         modifier = Modifier
@@ -317,10 +295,15 @@ private fun NearbyItem(
                 .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Text("$rank", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(
+                text = rank.toString(),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
 
-        Spacer(Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Row(
@@ -329,7 +312,7 @@ private fun NearbyItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = lot.parkingName,
+                    text = parkingName,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -350,7 +333,9 @@ private fun NearbyItem(
                         .size(20.dp),
                 )
             }
-            Spacer(Modifier.height(4.dp))
+
+            Spacer(modifier = Modifier.height(4.dp))
+
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (lot.basicFee > 0) {
                     Text(
@@ -365,9 +350,10 @@ private fun NearbyItem(
                         color = Gray500,
                     )
                 }
+
                 if (lot.totalCapacity > 0) {
                     Text(
-                        text = "· ${lot.totalCapacity}면",
+                        text = "총 ${lot.totalCapacity}면",
                         fontSize = 12.sp,
                         color = Gray400,
                     )
@@ -383,7 +369,7 @@ private fun SortChip(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val bg = if (selected) Primary else Gray100
+    val background = if (selected) Primary else Gray100
     val textColor = if (selected) Color.White else Gray600
 
     Text(
@@ -392,8 +378,53 @@ private fun SortChip(
         color = textColor,
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(bg)
+            .background(background)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 6.dp),
     )
+}
+
+@Composable
+internal fun InfoTooltipButton(
+    visible: Boolean,
+    onToggle: () -> Unit,
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier) {
+        IconButton(
+            onClick = onToggle,
+            modifier = Modifier.size(28.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.HelpOutline,
+                contentDescription = null,
+                tint = if (visible) Primary else Gray500,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+
+        if (visible) {
+            Popup(
+                alignment = Alignment.TopCenter,
+                offset = IntOffset(0, with(LocalDensity.current) { (-44).dp.roundToPx() }),
+                onDismissRequest = onToggle,
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.White,
+                    shadowElevation = 6.dp,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Gray100),
+                ) {
+                    Text(
+                        text = text,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        color = Gray700,
+                    )
+                }
+            }
+        }
+    }
 }

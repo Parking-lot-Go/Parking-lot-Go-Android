@@ -24,15 +24,28 @@ android {
 
         val kakaoAppKey = localProperties.getProperty("KAKAO_APP_KEY") ?: ""
         val kakaoRestApiKey = localProperties.getProperty("KAKAO_REST_API_KEY") ?: ""
-        val apiBaseUrl = localProperties.getProperty("API_BASE_URL") ?: ""
         val googleClientId = localProperties.getProperty("GOOGLE_CLIENT_ID") ?: ""
 
         manifestPlaceholders["KAKAO_APP_KEY"] = kakaoAppKey
 
         buildConfigField("String", "KAKAO_APP_KEY", "\"$kakaoAppKey\"")
         buildConfigField("String", "KAKAO_REST_API_KEY", "\"$kakaoRestApiKey\"")
-        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "GOOGLE_CLIENT_ID", "\"$googleClientId\"")
+    }
+
+    buildTypes {
+        val fallbackBaseUrl = localProperties.getProperty("API_BASE_URL") ?: ""
+        val localBaseUrl = localProperties.getProperty("LOCAL_API_BASE_URL") ?: fallbackBaseUrl
+        val prodBaseUrl = localProperties.getProperty("PROD_API_BASE_URL") ?: fallbackBaseUrl
+
+        getByName("debug") {
+            buildConfigField("String", "API_BASE_URL", "\"$localBaseUrl\"")
+        }
+
+        getByName("release") {
+            isMinifyEnabled = false
+            buildConfigField("String", "API_BASE_URL", "\"$prodBaseUrl\"")
+        }
     }
 
     buildFeatures {

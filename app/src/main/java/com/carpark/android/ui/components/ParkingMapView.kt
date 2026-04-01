@@ -507,6 +507,7 @@ fun ParkingMapView(
     searchPlaces: List<KakaoPlace> = emptyList(),
     onPanToConsumed: () -> Unit,
     onBoundsChange: (MapBounds, String?, Int) -> Unit,
+    onUserMovedMap: () -> Unit,
     onSelectLot: (ParkingLot) -> Unit,
     onMapClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -523,8 +524,10 @@ fun ParkingMapView(
     var lastMarkerRenderKey by remember { mutableStateOf<Int?>(null) }
     val latestParkingLots by rememberUpdatedState(parkingLots)
     val latestOnBoundsChange by rememberUpdatedState(onBoundsChange)
+    val latestOnUserMovedMap by rememberUpdatedState(onUserMovedMap)
     val latestOnSelectLot by rememberUpdatedState(onSelectLot)
     val latestOnMapClick by rememberUpdatedState(onMapClick)
+    var pendingProgrammaticMoves by remember { mutableStateOf(0) }
 
     // Update user location marker
     LaunchedEffect(kakaoMap, userLocation, userBearing) {
@@ -572,9 +575,13 @@ fun ParkingMapView(
         val labelManager = map.labelManager ?: return@LaunchedEffect
 
         try {
-            val layer = labelManager.getLayer("parking_markers")
+            val lotLayer = labelManager.getLayer("parking_markers")
                 ?: labelManager.addLayer(
                     LabelLayerOptions.from("parking_markers").setZOrder(1)
+                ) ?: return@LaunchedEffect
+            val clusterLayer = labelManager.getLayer("parking_clusters")
+                ?: labelManager.addLayer(
+                    LabelLayerOptions.from("parking_clusters").setZOrder(20000)
                 ) ?: return@LaunchedEffect
 
             val clusteredEntries = if (!isNearbyMode) {
@@ -595,7 +602,8 @@ fun ParkingMapView(
             )
             if (renderKey == lastMarkerRenderKey) return@LaunchedEffect
 
-            layer.removeAll()
+            lotLayer.removeAll()
+            clusterLayer.removeAll()
 
             val nextLotLabels = mutableMapOf<Int, Label>()
             val nextClusterLabels = mutableMapOf<String, ClusterMarker>()
@@ -611,7 +619,7 @@ fun ParkingMapView(
                             isDarkMode = isDarkMode,
                             isSelected = selectedLot?.id == lot.id,
                         )
-                        val label = layer.addLabel(
+                        val label = lotLayer.addLabel(
                             LabelOptions.from("lot_${lot.id}", LatLng.from(lot.latDouble, lot.lngDouble))
                                 .setStyles(styles)
                                 .setClickable(true)
@@ -620,7 +628,7 @@ fun ParkingMapView(
                             nextLotLabels[lot.id] = label
                         }
                     } else {
-                        val label = layer.addLabel(
+                        val label = clusterLayer.addLabel(
                             LabelOptions.from(
                                 cluster.labelId,
                                 LatLng.from(cluster.centerLat, cluster.centerLng),
@@ -638,7 +646,7 @@ fun ParkingMapView(
                     val lng = lot.lngDouble
                     if (lat == 0.0 || lng == 0.0) continue
 
-                    val label = layer.addLabel(
+                    val label = lotLayer.addLabel(
                         LabelOptions.from("lot_${lot.id}", LatLng.from(lat, lng))
                             .setStyles(
                                 createLotLabelStyles(
@@ -694,7 +702,7 @@ fun ParkingMapView(
         }
     }
 
-    // 검색 결과 빨간 점 마커
+    // 검색 결과 마커 — 카메라 이동(panTo) 완료 후 마커를 추가하기 위해 딜레이
     LaunchedEffect(kakaoMap, searchPlaces) {
         val map = kakaoMap ?: return@LaunchedEffect
         val ctx = context.value ?: return@LaunchedEffect
@@ -703,12 +711,15 @@ fun ParkingMapView(
         try {
             val layer = labelManager.getLayer("search_markers_layer")
                 ?: labelManager.addLayer(
-                    LabelLayerOptions.from("search_markers_layer").setZOrder(5)
+                    LabelLayerOptions.from("search_markers_layer").setZOrder(30000)
                 ) ?: return@LaunchedEffect
 
             layer.removeAll()
 
             if (searchPlaces.isEmpty()) return@LaunchedEffect
+
+            // panTo와 동시에 실행되므로, 카메라 이동 애니메이션(500ms) 완료 후 추가
+            kotlinx.coroutines.delay(600)
 
             val bitmap = createSearchMarkerBitmap(ctx)
             val style = LabelStyle.from(bitmap).setAnchorPoint(0.5f, 1.0f)
@@ -719,10 +730,13 @@ fun ParkingMapView(
                 val lng = place.longitude
                 if (lat == 0.0 || lng == 0.0) continue
 
-                val options = LabelOptions.from("search_${place.id}", LatLng.from(lat, lng))
-                    .setStyles(styles)
-                layer.addLabel(options)
+                layer.addLabel(
+                    LabelOptions.from("search_${place.id}", LatLng.from(lat, lng))
+                        .setStyles(styles)
+                        .setClickable(true)
+                )
             }
+            Log.d(TAG, "Search markers added: ${searchPlaces.size}")
         } catch (e: Exception) {
             Log.e(TAG, "Error updating search markers", e)
         }
@@ -733,6 +747,7 @@ fun ParkingMapView(
         val map = kakaoMap ?: return@LaunchedEffect
         if (panTo == null) return@LaunchedEffect
 
+        pendingProgrammaticMoves += 1
         map.moveCamera(
             CameraUpdateFactory.newCenterPosition(LatLng.from(panTo.lat, panTo.lng), 15),
             CameraAnimation.from(500)
@@ -749,6 +764,7 @@ fun ParkingMapView(
         val lng = selectedLot.lngDouble
         if (lat == 0.0 || lng == 0.0) return@LaunchedEffect
 
+        pendingProgrammaticMoves += 1
         map.moveCamera(
             CameraUpdateFactory.newCenterPosition(LatLng.from(lat, lng), 15),
             CameraAnimation.from(500)
@@ -774,11 +790,13 @@ fun ParkingMapView(
                             kakaoMap = map
 
                             // Initial camera position (Seoul)
+                            pendingProgrammaticMoves += 1
                             map.moveCamera(
                                 CameraUpdateFactory.newCenterPosition(
                                     LatLng.from(37.5665, 126.978)
                                 )
                             )
+                            pendingProgrammaticMoves += 1
                             map.moveCamera(CameraUpdateFactory.zoomTo(13))
 
                             // 축척 바 (좌측 하단)
@@ -809,6 +827,12 @@ fun ParkingMapView(
                                     currentVisibleRadiusMeters = approximateVisibleRadiusMeters(bounds)
                                     val isClustering = currentVisibleRadiusMeters > INDIVIDUAL_MAX_RADIUS
                                     Log.d(TAG, "zoom=$zoomLevel, radius=${currentVisibleRadiusMeters}m, clustering=$isClustering")
+                                    val isProgrammaticMove = pendingProgrammaticMoves > 0
+                                    if (isProgrammaticMove) {
+                                        pendingProgrammaticMoves -= 1
+                                    } else {
+                                        latestOnUserMovedMap()
+                                    }
                                     scope.launch {
                                         val region = resolveCenterRegion(ctx, centerLat, centerLng)
                                         latestOnBoundsChange(bounds, region, zoomLevel)
@@ -831,6 +855,7 @@ fun ParkingMapView(
                                     val cluster = clusterLabelsRef.value[labelId] ?: return@setOnLabelClickListener
                                     // 한 단계 줌인 → 반경 ~절반 → 구→동→개별 순
                                     val nextZoom = (currentZoomLevel + 1).coerceAtMost(17)
+                                    pendingProgrammaticMoves += 1
                                     map.moveCamera(
                                         CameraUpdateFactory.newCenterPosition(
                                             LatLng.from(cluster.centerLat, cluster.centerLng),

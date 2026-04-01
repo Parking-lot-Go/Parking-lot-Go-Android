@@ -2,11 +2,13 @@ package com.carpark.android.ui
 
 import android.graphics.Rect
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -21,7 +23,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.carpark.android.R
 import com.carpark.android.data.local.AppSettingsPreferences
@@ -32,6 +36,7 @@ import com.carpark.android.ui.components.BottomNavBar
 import com.carpark.android.ui.components.HeaderBar
 import com.carpark.android.ui.components.NearbyBottomSheet
 import com.carpark.android.ui.components.NearbyParkingInfoPager
+import com.carpark.android.ui.components.ExpandableParkingCard
 import com.carpark.android.ui.components.ParkingInfoCard
 import com.carpark.android.ui.components.ParkingMapView
 import com.carpark.android.ui.components.SearchOverlay
@@ -54,7 +59,7 @@ fun MainScreen(
     val settingsPreferences = remember(context) { AppSettingsPreferences(context) }
 
     val isDarkMode = isAppInDarkTheme()
-    val hideHeader = state.detailLot != null || state.savedExpanded || state.nearbyExpanded
+    val hideHeader = state.detailLot != null || state.savedExpanded || state.nearbyExpanded || state.cardExpanded
     val isKeyboardVisible = rememberKeyboardVisible()
     var isSearchFocused by remember { mutableStateOf(false) }
     val shouldHideBottomNav = state.searchPageOpen || (isKeyboardVisible && isSearchFocused)
@@ -72,6 +77,26 @@ fun MainScreen(
                     route = state.myPageRoute,
                     authPreferences = authPreferences,
                     settingsPreferences = settingsPreferences,
+                    onLoadSupportTickets = {
+                        viewModel.loadMySupportTickets()
+                    },
+                    onSubmitInquiry = { category, title, content, contextNote, replyEmail ->
+                        viewModel.submitInquiryTicket(
+                            category = category,
+                            title = title,
+                            content = content,
+                            contextNote = contextNote,
+                            replyEmail = replyEmail,
+                        )
+                    },
+                    onSubmitFeatureRequest = { category, title, problem, expectedImprovement ->
+                        viewModel.submitFeatureRequestTicket(
+                            category = category,
+                            title = title,
+                            problem = problem,
+                            expectedImprovement = expectedImprovement,
+                        )
+                    },
                     onNavigate = viewModel::navigateMyPage,
                     onBack = {
                         if (state.myPageRoute == MyPageRoute.ROOT) {
@@ -87,10 +112,12 @@ fun MainScreen(
                 BoxWithConstraints(modifier = Modifier.weight(1f)) {
                     val fabBottom by animateDpAsState(
                         targetValue = when {
+                            state.cardExpanded -> maxHeight + 16.dp
                             state.nearbyExpanded && state.sheetOpen -> maxHeight * 0.92f + 16.dp
                             state.isNearbyMode && state.sheetOpen -> maxHeight * 0.55f + 16.dp
                             state.savedExpanded && state.savedOpen -> maxHeight * 0.92f + 16.dp
                             state.savedOpen -> maxHeight * 0.50f + 16.dp
+                            state.selectedLot != null && !state.isNearbyMode -> 310.dp
                             state.selectedLot != null -> 256.dp
                             else -> 16.dp
                         },
@@ -108,6 +135,7 @@ fun MainScreen(
                         searchPlaces = state.searchPlaces,
                         onPanToConsumed = viewModel::consumePanTo,
                         onBoundsChange = viewModel::updateBounds,
+                        onUserMovedMap = viewModel::onUserMovedMap,
                         onSelectLot = viewModel::selectLot,
                         onMapClick = {
                             if (state.isNearbyMode) viewModel.minimizeSheet()
@@ -130,6 +158,37 @@ fun MainScreen(
                                 dataMode = state.mode,
                                 onModeChange = viewModel::changeMode,
                             )
+                        }
+                    }
+
+                    if (state.showNearbySearchCta && state.activeTab == TabId.NEARBY && !state.sheetOpen) {
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 92.dp),
+                            color = if (isDarkMode) Color(0xFF111827).copy(alpha = 0.96f) else Color.White.copy(alpha = 0.96f),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+                            shadowElevation = 4.dp,
+                            onClick = viewModel::reSearchNearby,
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_gps_outlined),
+                                    contentDescription = "re-search-nearby",
+                                    tint = if (isDarkMode) Color(0xFF60A5FA) else Color(0xFF2563EB),
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Text(
+                                    text = "이 지역에서 재검색",
+                                    color = if (isDarkMode) Color(0xFF60A5FA) else Color(0xFF2563EB),
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.sp,
+                                )
+                            }
                         }
                     }
 
@@ -158,14 +217,14 @@ fun MainScreen(
                             .size(40.dp),
                         containerColor = if (isDarkMode) Color(0xFF1F2937).copy(alpha = 0.85f)
                         else Color.White.copy(alpha = 0.75f),
-                        contentColor = if (isDarkMode) Color.White else Color(0xFF4285F4),
+                        contentColor = if (isDarkMode) Color.White else Color(0xFF111827),
                         elevation = FloatingActionButtonDefaults.elevation(2.dp),
                     ) {
                         if (state.gpsLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(18.dp),
                                 strokeWidth = 2.dp,
-                                color = if (isDarkMode) Color.White else Color(0xFF4285F4),
+                                color = if (isDarkMode) Color.White else Color(0xFF111827),
                             )
                         } else {
                             Icon(
@@ -180,8 +239,8 @@ fun MainScreen(
                     }
 
                     if (state.selectedLot != null) {
-                        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-                            if (state.isNearbyMode && state.selectedNearbyIndex >= 0 && state.nearbyLots.isNotEmpty()) {
+                        if (state.isNearbyMode && state.selectedNearbyIndex >= 0 && state.nearbyLots.isNotEmpty()) {
+                            Box(modifier = Modifier.align(Alignment.BottomCenter)) {
                                 NearbyParkingInfoPager(
                                     lots = state.nearbyLots.map { it.lot },
                                     selectedIndex = state.selectedNearbyIndex,
@@ -192,18 +251,18 @@ fun MainScreen(
                                     onShowDetail = viewModel::showDetail,
                                     onPageSelected = viewModel::selectNearbyLotByIndex,
                                 )
-                            } else {
-                                ParkingInfoCard(
-                                    lot = state.selectedLot!!,
-                                    dataMode = state.mode,
-                                    isSaved = viewModel.isSavedLot(state.selectedLot!!.id),
-                                    onToggleSave = { viewModel.toggleSavedLot(state.selectedLot!!) },
-                                    onClose = { viewModel.selectLot(null) },
-                                    onShowDetail = {
-                                        state.selectedLot?.let { viewModel.showDetail(it) }
-                                    },
-                                )
                             }
+                        } else {
+                            ExpandableParkingCard(
+                                lot = state.selectedLot!!,
+                                dataMode = state.mode,
+                                expanded = state.cardExpanded,
+                                isSaved = viewModel.isSavedLot(state.selectedLot!!.id),
+                                onToggleSave = { viewModel.toggleSavedLot(state.selectedLot!!) },
+                                onClose = { viewModel.selectLot(null) },
+                                onExpandChange = viewModel::setCardExpanded,
+                                modifier = Modifier.fillMaxSize(),
+                            )
                         }
                     }
 

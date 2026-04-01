@@ -6,14 +6,16 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.carpark.android.BuildConfig
 import com.carpark.android.data.local.SavedParkingPreferences
 import com.carpark.android.data.local.SearchHistoryPreferences
 import com.carpark.android.data.model.*
 import com.carpark.android.data.repository.ParkingRepository
 import com.carpark.android.util.LocationHelper
-import android.util.Log
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,6 +54,8 @@ data class ParkingUiState(
     val userLocation: LatLngPoint? = null,
     val userBearing: Float? = null,
     val isMapTooZoomedOut: Boolean = false,
+    val showNearbySearchCta: Boolean = false,
+    val cardExpanded: Boolean = false,
 )
 
 data class LatLngPoint(val lat: Double, val lng: Double)
@@ -99,6 +103,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
         private const val BOUNDS_UPDATE_DEBOUNCE_MS = 400L
         /** 이전 bounds 대비 이 비율 이상 변해야 재로딩 (0.3 = 30%) */
         private const val BOUNDS_CHANGE_THRESHOLD = 0.3
+        private const val LOCATION_LOG_PREFIX = "CURRENT_LOCATION_COORD"
     }
 
     init {
@@ -182,21 +187,29 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
             currentDistrict = if (parts.size > 1) parts[1].trim() else null
             _uiState.update { it.copy(centerRegion = region) }
         }
+
+        // 내주변 모드에서는 줌아웃해도 마커를 유지
+        if (_uiState.value.isNearbyMode) {
+            _uiState.update { it.copy(isMapTooZoomedOut = false) }
+            return
+        }
+
         if (isTooFar) {
             boundsUpdateJob?.cancel()
             refreshJob?.cancel()
+            // NOT_LINKED 모드(정적 데이터)는 마커를 유지하고, 서버 모드만 마커 제거
+            val shouldClearLots = _uiState.value.mode != DataMode.NOT_LINKED
             _uiState.update {
                 it.copy(
                     isMapTooZoomedOut = true,
-                    parkingLots = emptyList(),
-                    selectedLot = null,
-                    selectedNearbyIndex = -1,
+                    parkingLots = if (shouldClearLots) emptyList() else it.parkingLots,
+                    selectedLot = if (shouldClearLots) null else it.selectedLot,
+                    selectedNearbyIndex = if (shouldClearLots) -1 else it.selectedNearbyIndex,
                 )
             }
             return
         }
         _uiState.update { it.copy(isMapTooZoomedOut = false) }
-        if (_uiState.value.isNearbyMode) return
 
         // 줌 레벨이 같고 살짝 이동한 경우 재로딩 스킵
         if (prevZoom == zoomLevel && prevBounds != null && !hasBoundsChangedEnough(prevBounds, bounds)) {
@@ -208,6 +221,17 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
             delay(BOUNDS_UPDATE_DEBOUNCE_MS)
             loadParkingLots(_uiState.value.mode, bounds, currentDistrict)
             startAutoRefresh()
+        }
+    }
+
+    fun onUserMovedMap() {
+        _uiState.update {
+            it.copy(
+                showNearbySearchCta = it.isNearbyMode && !it.sheetOpen && it.activeTab == TabId.NEARBY,
+                selectedLot = null,
+                selectedNearbyIndex = -1,
+                cardExpanded = false,
+            )
         }
     }
 
@@ -236,17 +260,22 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
             }
             return
         }
+        _uiState.update { it.copy(showNearbySearchCta = false) }
         loadParkingLots(newMode, currentBounds, currentDistrict)
         if (newMode == DataMode.REALTIME) startAutoRefresh()
     }
 
+    fun setCardExpanded(expanded: Boolean) {
+        _uiState.update { it.copy(cardExpanded = expanded) }
+    }
+
     fun selectLot(lot: ParkingLot?) {
         if (lot != null && _uiState.value.selectedLot?.id == lot.id) {
-            _uiState.update { it.copy(selectedLot = null, selectedNearbyIndex = -1) }
+            _uiState.update { it.copy(selectedLot = null, selectedNearbyIndex = -1, cardExpanded = false) }
             return
         }
         if (lot == null) {
-            _uiState.update { it.copy(selectedLot = null, selectedNearbyIndex = -1) }
+            _uiState.update { it.copy(selectedLot = null, selectedNearbyIndex = -1, cardExpanded = false) }
             return
         }
         val nearbyIndex = _uiState.value.nearbyLots.indexOfFirst { it.lot.id == lot.id }
@@ -254,6 +283,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
             it.copy(
                 selectedLot = if (nearbyIndex >= 0) it.nearbyLots[nearbyIndex].lot else lot,
                 selectedNearbyIndex = nearbyIndex,
+                cardExpanded = false,
             )
         }
         // NOT_LINKED 모드에서는 정적 데이터만 있으므로 API로 상세 조회
@@ -416,6 +446,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                         searchPageOpen = false,
                         searchResultsOpen = false,
                         activeTab = tab,
+                        showNearbySearchCta = false,
                     )
                 }
                 if (_uiState.value.isNearbyMode) {
@@ -425,37 +456,58 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 requestNearbySearch()
             }
             TabId.HOME -> {
+                val wasNearby = _uiState.value.isNearbyMode
                 _uiState.update {
                     it.copy(
                         savedOpen = false,
                         savedExpanded = false,
                         sheetOpen = false,
+                        nearbyExpanded = false,
                         searchPageOpen = false,
                         activeTab = tab,
+                        isNearbyMode = false,
+                        showNearbySearchCta = false,
+                        selectedLot = null,
+                        selectedNearbyIndex = -1,
                     )
+                }
+                if (wasNearby) {
+                    loadParkingLots(_uiState.value.mode, currentBounds, currentDistrict)
+                    startAutoRefresh()
                 }
             }
             TabId.SAVED -> {
+                val wasNearby = _uiState.value.isNearbyMode
                 _uiState.update {
                     it.copy(
                         sheetOpen = false,
+                        nearbyExpanded = false,
                         searchPageOpen = false,
                         searchResultsOpen = false,
                         activeTab = tab,
+                        isNearbyMode = false,
                         savedOpen = !it.savedOpen,
+                        showNearbySearchCta = false,
                     )
+                }
+                if (wasNearby) {
+                    loadParkingLots(_uiState.value.mode, currentBounds, currentDistrict)
+                    startAutoRefresh()
                 }
             }
             TabId.MY -> {
                 _uiState.update {
                     it.copy(
                         sheetOpen = false,
+                        nearbyExpanded = false,
                         searchPageOpen = false,
                         searchResultsOpen = false,
                         savedOpen = false,
                         savedExpanded = false,
                         activeTab = tab,
+                        isNearbyMode = false,
                         myPageRoute = MyPageRoute.ROOT,
+                        showNearbySearchCta = false,
                     )
                 }
             }
@@ -524,6 +576,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                         selectedLot = null,
                         selectedNearbyIndex = -1,
                         panTo = LatLngPoint(first.latitude, first.longitude),
+                        showNearbySearchCta = false,
                     )
                 }
             } catch (e: Exception) {
@@ -548,6 +601,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 panTo = LatLngPoint(place.latitude, place.longitude),
                 searchQuery = place.place_name,
                 activeTab = TabId.HOME,
+                showNearbySearchCta = false,
             )
         }
     }
@@ -564,6 +618,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
             val location = LocationHelper.getCurrentLocation(getApplication())
             val lat = location?.latitude ?: 37.27903037476364
             val lng = location?.longitude ?: 127.46299871026446
+            logCurrentLocation("requestNearbySearch", lat, lng, location != null)
             _uiState.update { it.copy(gpsLoading = false) }
             executeNearbySearch(
                 lat = lat,
@@ -583,6 +638,23 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
+    fun searchNearbyFromCurrentLocation() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(gpsLoading = true, showNearbySearchCta = false) }
+            val location = LocationHelper.getCurrentLocation(getApplication())
+            val lat = location?.latitude ?: _uiState.value.userLocation?.lat ?: 37.27903037476364
+            val lng = location?.longitude ?: _uiState.value.userLocation?.lng ?: 127.46299871026446
+            logCurrentLocation("searchNearbyFromCurrentLocation", lat, lng, location != null)
+            _uiState.update { it.copy(gpsLoading = false) }
+            executeNearbySearch(
+                lat = lat,
+                lng = lng,
+                updateUserLocation = true,
+                moveCamera = true,
+            )
+        }
+    }
+
     private fun executeNearbySearch(
         lat: Double,
         lng: Double,
@@ -594,11 +666,20 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 userLocation = if (updateUserLocation) LatLngPoint(lat, lng) else it.userLocation,
                 panTo = if (moveCamera) LatLngPoint(lat, lng) else it.panTo,
                 isMapTooZoomedOut = false,
+                showNearbySearchCta = false,
             )
         }
         viewModelScope.launch {
             refreshJob?.cancel()
-            _uiState.update { it.copy(loading = true, isNearbyMode = true, sheetOpen = true) }
+            _uiState.update {
+                it.copy(
+                    loading = true,
+                    isNearbyMode = true,
+                    sheetOpen = true,
+                    activeTab = TabId.NEARBY,
+                    showNearbySearchCta = false,
+                )
+            }
             try {
                 val nearby = repository.fetchNearbyLots(lat, lng)
                 _uiState.update {
@@ -652,6 +733,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 isMapTooZoomedOut = currentZoomLevel <= MIN_QUERY_ZOOM_LEVEL,
                 selectedLot = null,
                 selectedNearbyIndex = -1,
+                showNearbySearchCta = false,
             )
         }
         if (currentZoomLevel <= MIN_QUERY_ZOOM_LEVEL) {
@@ -663,7 +745,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun minimizeSheet() {
-        _uiState.update { it.copy(sheetOpen = false, nearbyExpanded = false) }
+        _uiState.update { it.copy(sheetOpen = false, nearbyExpanded = false, showNearbySearchCta = false) }
     }
 
     fun setNearbyExpanded(expanded: Boolean) {
@@ -724,6 +806,9 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
             state.detailLot != null -> {
                 closeDetail(); true
             }
+            state.cardExpanded -> {
+                _uiState.update { it.copy(cardExpanded = false) }; true
+            }
             state.nearbyExpanded -> {
                 _uiState.update { it.copy(nearbyExpanded = false) }; true
             }
@@ -759,14 +844,17 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 val location = LocationHelper.getCurrentLocation(getApplication())
                 if (location != null) {
                     val point = LatLngPoint(location.latitude, location.longitude)
+                    logCurrentLocation("fetchMyLocation", point.lat, point.lng, true)
                     _uiState.update {
                         it.copy(
-                            gpsLoading = false,
-                            userLocation = point,
-                            panTo = point,
-                        )
-                    }
+                        gpsLoading = false,
+                        userLocation = point,
+                        panTo = point,
+                        showNearbySearchCta = false,
+                    )
+                }
                 } else {
+                    Log.d("ParkingViewModel", "$LOCATION_LOG_PREFIX source=fetchMyLocation status=unavailable")
                     _uiState.update { it.copy(gpsLoading = false) }
                 }
             } catch (e: Exception) {
@@ -780,5 +868,86 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update {
             it.copy(recentSearches = searchHistoryPrefs.getRecentSearches())
         }
+    }
+
+    suspend fun submitInquiryTicket(
+        category: InquiryCategory,
+        title: String,
+        content: String,
+        contextNote: String,
+        replyEmail: String,
+    ): Result<Unit> {
+        return submitSupportTicket(
+            CreateSupportTicketRequest(
+                ticketType = SupportTicketType.INQUIRY,
+                category = category.name,
+                title = title.trim(),
+                content = content.trim(),
+                extraContent1 = contextNote.trim().takeIf { it.isNotBlank() },
+                extraContent2 = replyEmail.trim().takeIf { it.isNotBlank() },
+                appVersion = BuildConfig.VERSION_NAME,
+                osVersion = buildOsVersion(),
+                deviceModel = Build.MODEL ?: "Unknown",
+            )
+        )
+    }
+
+    suspend fun submitFeatureRequestTicket(
+        category: FeatureRequestCategory,
+        title: String,
+        problem: String,
+        expectedImprovement: String,
+    ): Result<Unit> {
+        val trimmedProblem = problem.trim()
+        val trimmedExpectedImprovement = expectedImprovement.trim()
+        return submitSupportTicket(
+            CreateSupportTicketRequest(
+                ticketType = SupportTicketType.FEATURE_REQUEST,
+                category = category.name,
+                title = title.trim(),
+                content = buildFeatureRequestContent(trimmedProblem, trimmedExpectedImprovement),
+                extraContent1 = trimmedProblem.takeIf { it.isNotBlank() },
+                extraContent2 = trimmedExpectedImprovement.takeIf { it.isNotBlank() },
+                appVersion = BuildConfig.VERSION_NAME,
+                osVersion = buildOsVersion(),
+                deviceModel = Build.MODEL ?: "Unknown",
+            )
+        )
+    }
+
+    private suspend fun submitSupportTicket(
+        request: CreateSupportTicketRequest,
+    ): Result<Unit> = runCatching {
+        repository.createSupportTicket(request)
+        Unit
+    }
+
+    suspend fun loadMySupportTickets(): Result<List<SupportTicket>> = runCatching {
+        repository.fetchSupportTickets(mine = true)
+            .sortedByDescending { it.createdAt }
+    }
+
+    private fun buildOsVersion(): String {
+        val release = Build.VERSION.RELEASE?.takeIf { it.isNotBlank() } ?: Build.VERSION.SDK_INT.toString()
+        return "Android $release"
+    }
+
+    private fun buildFeatureRequestContent(
+        problem: String,
+        expectedImprovement: String,
+    ): String {
+        return when {
+            problem.isNotBlank() && expectedImprovement.isNotBlank() ->
+                "$problem\n\n개선 희망 사항: $expectedImprovement"
+            problem.isNotBlank() -> problem
+            else -> expectedImprovement
+        }
+    }
+
+    private fun logCurrentLocation(source: String, lat: Double, lng: Double, isFreshGps: Boolean) {
+        Log.d(
+            "ParkingViewModel",
+            "$LOCATION_LOG_PREFIX source=$source lat=$lat lng=$lng freshGps=$isFreshGps",
+        )
     }
 }

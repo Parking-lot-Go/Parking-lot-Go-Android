@@ -2,12 +2,17 @@ package com.carpark.android.data.api
 
 import com.carpark.android.data.model.ApiResponse
 import com.carpark.android.data.model.AuthUser
+import com.carpark.android.data.model.CreateSupportTicketRequest
 import com.carpark.android.data.model.FavoritesPageResponse
 import com.carpark.android.data.model.KakaoLoginRequest
 import com.carpark.android.data.model.KakaoLoginResponse
 import com.carpark.android.data.model.ParkingLot
 import com.carpark.android.data.model.ParkingResponse
+import com.carpark.android.data.model.SupportTicket
+import com.carpark.android.data.model.SupportTicketStatus
+import com.carpark.android.data.model.SupportTicketType
 import com.carpark.android.data.model.TokenReissueRequest
+import com.carpark.android.data.model.UpdateSupportTicketRequest
 import com.google.gson.JsonElement
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -55,7 +60,7 @@ interface ParkingApi {
     @GET("parking/{id}")
     suspend fun fetchParkingDetail(
         @Path("id") id: Int,
-    ): ParkingLot
+    ): ApiResponse<ParkingLot>
 
     // --- 즐겨찾기 ---
 
@@ -69,4 +74,22 @@ interface ParkingApi {
     suspend fun toggleFavorite(
         @Path("parkingId") parkingId: Int,
     ): ApiResponse<Boolean>
+
+    @POST("support-tickets")
+    suspend fun createSupportTicket(
+        @Body request: CreateSupportTicketRequest,
+    ): ApiResponse<SupportTicket>
+
+    @GET("support-tickets")
+    suspend fun fetchSupportTickets(
+        @Query("type") type: SupportTicketType? = null,
+        @Query("status") status: SupportTicketStatus? = null,
+        @Query("mine") mine: Boolean? = null,
+    ): ApiResponse<List<SupportTicket>>
+
+    @PATCH("support-tickets/{id}")
+    suspend fun updateSupportTicket(
+        @Path("id") id: Long,
+        @Body request: UpdateSupportTicketRequest,
+    ): ApiResponse<SupportTicket>
 }
